@@ -40,6 +40,7 @@ typedef struct NPC {
 	int direction;
 	int remainMove;
 	int number;
+	int check[5] = { 0 };
 	NPC * leftLink;
 	NPC * rightLink;
 }NPC;
@@ -108,13 +109,14 @@ void gameStart();
 void drawGamePage();
 void removeWall(int x, int y);
 boolean moveTank(int direction);
-void moveNPCWithThread(void *param);
+boolean moveNPC();
 void removeAllMissile();
 void addMissile(int x, int y, int direction);
 void addScore(int number);
 void removeAllScore();
 void printMissile();
 void moveMissile();
+boolean detectConflictWithTank(int checkX, int checkY);
 boolean detectConflictWithNPC(int checkX, int checkY);
 boolean detectConflictWithWall(int checkX, int checkY);
 void printTank();
@@ -268,7 +270,6 @@ void drawInitDefault() {
 	printf("press any key to start");
 }
 
-
 // 데이터로부터 맵을 로딩
 void loadMap() {
 
@@ -342,7 +343,6 @@ void addMissile(int x, int y, int direction) {
 	else {
 
 		MISSILE* temp = ALL_MISSILE;
-		MISSILE* temp1;
 
 		while (temp != NULL) {
 
@@ -381,8 +381,6 @@ void removeAllMissile() {
 		return;
 	}
 
-	int i;
-
 	while (temp != NULL) {
 
 		temp1 = temp->next;
@@ -394,10 +392,11 @@ void removeAllMissile() {
 	ALL_MISSILE = NULL;
 }
 
-// NPC를 원형 큐에 추가
+// NPC를 원형 연결리스트에 추가
 void addNPC(NPC_HEAD& npc_list, int x, int y, int number) {
 
 	npc_list.num += 1;
+	int check[5] = { 0 };
 
 	if (npc_list.head == NULL) {
 
@@ -563,8 +562,6 @@ void gameStart() {
 
 	drawGamePage();
 
-	_beginthread(moveNPCWithThread, 1, NULL);
-
 	/*=======================*/
 	int counting = 0;
 
@@ -685,14 +682,25 @@ void gameStart() {
 
 		}
 
-			if (counting % 10 == 0) {
-				moveMissile();
-				printMissile();
-			}
+		if (counting % 10 == 0) {
+			moveMissile();
+			printMissile();
+		}
 
-			if (counting % 25 == 0) {
+		/*if (!enableDice) {
+			if (counting % 40 == 0) {
+				if (moveNPC()) {
+					return;
+				}
 				printNPC();
 			}
+		}*/
+		if (counting % 40 == 0) {
+			if (moveNPC()) {
+				return;
+			}
+			printNPC();
+		}
 		
 		
 		printTank();
@@ -853,85 +861,105 @@ void drawRemainCount() {
 
 }
 
-void moveNPCWithThread(void *param) {
+// NPC를 움직임(탱크와 충돌할 경우 true 리턴)
+boolean moveNPC() {
 
-	//while (1) {
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
 
-	//	NPC_HEAD npc_list = NPC_LIST[ROUND];
+	if (npc_list.num == 0) {
+		return false;
+	}
 
-	//	if (npc_list.num == 0) {
-	//		return;
-	//	}
+	NPC* npc = npc_list.head;
+	MAP map = ALL_MAP[ROUND];
 
-	//	NPC* npc = npc_list.head;
-	//	MAP map = ALL_MAP[ROUND];
+	do {
+
+		while (1) {
+
+			int x = npc->x;
+			int y = npc->y;
+			int direction = npc->direction;
+			int remainMove = npc->remainMove;
+			int* check = npc->check;
+
+			if (remainMove == 0) {
+
+				if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) {
+					break;
+				}
+				while (1) {
+					direction = rand() % 4 + 1;
+					if (check[direction] != 1) {
+						break;
+					}
+				}
+					
+				npc->direction = direction;
+				npc->check[direction] = 1;
+
+				remainMove = rand() % 10 + 1;
+				npc->remainMove = remainMove;
+			}
+
+			switch (direction) {
+			case DIRECTION_LEFT:
+				x -= 1;
+				break;
+			case DIRECTION_RIGHT:
+				x += 1;
+				break;
+			case DIRECTION_UP:
+				y -= 1;
+				break;
+			case DIRECTION_DOWN:
+				y += 1;
+				break;
+			}
+
+			if (detectConflictWithTank(x, y)) {
+				return true;
+			}
+
+			if (detectConflictWithWall(x, y) || detectConflictWithNPC(x,y)) {
+				npc->remainMove = 0;
+				continue;
+			}
+			SetCurrentCursorPos(GBOARD_ORIGIN_X + (npc->x * 2), GBOARD_ORIGIN_Y + npc->y);
+			printf("　");
+			npc->x = x;
+			npc->y = y;
+			npc->check[1] = 0;
+			npc->check[2] = 0;
+			npc->check[3] = 0;
+			npc->check[4] = 0;
+
+			break;
+
+		}
 
 
-	//	while (!enableMoveNPC) {
 
-	//	}
 
-	//	do {
+		npc = npc->rightLink;
 
-	//		int x = npc->x;
-	//		int y = npc->y;
-	//		int direction = npc->direction;
-	//		int remainMove = npc->remainMove;
+	} while (npc != npc_list.head);
 
-	//		if (remainMove == 0) {
-	//			direction = rand() % 4 + 1;
-	//			npc->direction = direction;
-	//			remainMove = rand() % 10 + 1;
-	//			npc->remainMove = remainMove;
-
-	//		}
-
-	//		// 예상 이동방향 설정
-	//		switch (direction) {
-	//		case DIRECTION_LEFT:
-	//			x -= 1;
-	//			break;
-	//		case DIRECTION_RIGHT:
-	//			x += 1;
-	//			break;
-	//		case DIRECTION_UP:
-	//			y -= 1;
-	//			break;
-	//		case DIRECTION_DOWN:
-	//			y += 1;
-	//			break;
-	//		}
-
-	//		if (detectConflictWithNPC(x, y)) {
-	//			npc->remainMove = 0;
-	//			continue;
-	//		}
-
-	//		switch (map.map[y][x]) {
-	//		case 0:
-	//			if (myX == x && myY == y) {
-	//				isGameOver = false;
-	//				//return;
-	//			}
-	//			npc->x = x;
-	//			npc->y = y;
-	//			npc->remainMove -= 1;
-	//			break;
-	//		default:
-	//			npc->remainMove = 0;
-	//			break;
-	//		}
-
-	//		npc = npc->rightLink;
-	//	} while (npc != npc_list.head);
-
-	//	//printMap();
-	//	Sleep(500);
-	//}
+	return false;
 
 }
 
-// NPC와 탱크의 충돌을 체크(충돌일시 true반환)
+// 탱크와 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithTank(int checkX, int checkY) {
+
+	if (checkX == myX && checkY == myY) {
+		return true;
+	}
+
+	return false;
+}
+
+// NPC와 충돌을 체크(충돌일시 true반환)
 boolean detectConflictWithNPC(int checkX, int checkY) {
 
 	NPC_HEAD npc_list = NPC_LIST[ROUND];
@@ -961,8 +989,12 @@ boolean detectConflictWithWall(int checkX, int checkY) {
 
 	MAP map = ALL_MAP[ROUND];
 
-	if (map.map[checkY][checkX] <= 3 && map.map[checkY][checkX] > 0) {
+	int number = map.map[checkY][checkX];
 
+	if (number <= 3 && number > 0) {
+		return true;
+	}
+	else if (number == 9 || number == 8) {
 		return true;
 	}
 
