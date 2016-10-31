@@ -886,6 +886,10 @@ boolean moveNPC() {
 			if (remainMove == 0) {
 
 				if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) {
+					npc->check[1] = 0;
+					npc->check[2] = 0;
+					npc->check[3] = 0;
+					npc->check[4] = 0;
 					break;
 				}
 				while (1) {
