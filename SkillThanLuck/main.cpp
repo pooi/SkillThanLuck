@@ -522,7 +522,47 @@ void helpPage() {
 
 	system("cls");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y);
-	printf("이곳은 도움말이 표시됩니다.");
+	printf("당신은 ▲입니다. NPC를 피해 도착지점까지 무사히 도착하세요!\n\n\n");
+
+	int y = GetCurrentCursorPos().Y;
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
+	printf("● Key\n\n");
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X+2, GetCurrentCursorPos().Y);
+	printf("* ↑ : 위로 이동\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* ↓ : 아래로 이동\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* ← : 왼쪽으로 이동\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* → : 오른쪽으로 이동\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* Space bar : 미사일 발사\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* Q : 초기화면에서 도움말\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* ESC : 뒤로 가기\n\n");
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X+30, y);
+	printf("● 게임 요소\n\n");
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* □ : 1단계 벽\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ■ : 2단계 벽\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ▣ : 3단계 벽\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ♤ : 1단계 NPC\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ♠ : 2단계 NPC\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ▩ : 함정\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ＝,∥ : 미사일\n\n");
+
+
+
 
 	while (1) {
 		int key;
