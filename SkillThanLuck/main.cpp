@@ -27,6 +27,13 @@
 #define KEY_Q 113
 #define KEY_R 114
 
+#define FONT_DEFAULT_COLOR 7
+#define FONT_RED_COLOR 4
+#define FONT_LIGHT_RED_COLOR 12
+#define FONT_GREED_COLOR 2
+#define FONT_BLUE_COLOR 1
+#define PLAYER_COLOR 9
+
 
 typedef struct MAP {
 	int x, y;
@@ -80,15 +87,31 @@ int itemDiceNumber = 0;
 int diceEnableNumber = 0;
 int myX = 0;
 int myY = 0;
-int currentTankDirection = DIRECTION_UP;
 boolean enableDice = false;
 boolean enableMoveNPC = false;
 boolean isGameOver = false;
 boolean isSuccess = false;
+boolean isNeedPrintMap = false;
 MAP* ALL_MAP = NULL;
 NPC_HEAD* NPC_LIST = NULL;
 MISSILE* ALL_MISSILE = NULL;
 SCORE* SCORE_LIST = NULL;
+
+// 아이템 관련 전역 변수
+int NPC_SPEED = 40;
+int currentTankDirection = DIRECTION_UP;
+int restrictSightRange = 2;
+int remainDiceNumberByNPCSpeed = 0;
+int remainDiceNumberBySight = 0;
+int remainDiceNumberByNPCStop = 0;
+int remainDiceNumberByTankUnbeatable = 0;
+boolean enableSight = true;
+boolean isAlreadyNPCSpeed = false;
+boolean isAlreadySight = false;
+boolean isAlreadyNPCStop = false;
+boolean isAlreadyTankUnbeatable = false;
+boolean isNPCStop = false;
+boolean isTankUnbeatable = false;
 
 // 함수 선언부
 void SetCurrentCursorPos(int x, int y);
@@ -96,6 +119,7 @@ void SetCurrentCursorPos(COORD current);
 COORD GetCurrentCursorPos(void);
 void GetCurrentCursorPos(int& x, int & y);
 void RemoveCursor(void);
+void setFontColor(int color);
 
 void setConsoleSize(int cols, int lines);
 void initPage();
@@ -103,7 +127,7 @@ void drawInitDefault();
 void removeAllNPCList();
 void loadMap();
 void addNPC(NPC_HEAD& npc_list, int x, int y, int number);
-void removeNPC(int x, int y);
+void removeNPC(int x, int y, boolean isDelete);
 void helpPage();
 void gameStart();
 void drawGamePage();
@@ -119,6 +143,15 @@ void moveMissile();
 boolean detectConflictWithTank(int checkX, int checkY);
 boolean detectConflictWithNPC(int checkX, int checkY);
 boolean detectConflictWithWall(int checkX, int checkY);
+boolean detectConflictWithItem(int checkX, int checkY);
+void useItem();
+void NPCSpeedUp(void * param);
+void restrictSight(void * param);
+void NPCStop(void * param);
+void tankUnbeatable(void * param);
+void mapDestroy(boolean isUp);
+void addNewNPC();
+void removeOneNPC();
 void printTank();
 void printNPC();
 void printMap();
@@ -424,6 +457,7 @@ void addNPC(NPC_HEAD& npc_list, int x, int y, int number) {
 		npc_list.tail->leftLink = npc_list.head;
 
 		npc_list.head->leftLink = npc_list.tail;
+		npc_list.head->rightLink = npc_list.tail;
 
 	}
 	else {
@@ -597,8 +631,24 @@ void gameStart() {
 
 	enableDice = true;
 	enableMoveNPC = false;
+	isNeedPrintMap = false;
 	isGameOver = false;
 	isSuccess = false;
+
+	// 아이템 관련 전역변수 초기화
+	enableSight = true;
+	isAlreadyNPCSpeed = false;
+	isAlreadySight = false;
+	isAlreadyNPCStop = false;
+	isAlreadyTankUnbeatable = false;
+	isNPCStop = false;
+	isTankUnbeatable = false;
+	NPC_SPEED = 40;
+	restrictSightRange = 3;
+	remainDiceNumberByNPCSpeed = 0;
+	remainDiceNumberBySight = 0;
+	remainDiceNumberByNPCStop = 0;
+	remainDiceNumberByTankUnbeatable = 0;
 
 	drawGamePage();
 
@@ -735,15 +785,24 @@ void gameStart() {
 				printNPC();
 			}
 		}*/
-		if (counting % 40 == 0) {
-			if (moveNPC()) {
-				return;
+		if(!isNPCStop){
+
+			if (counting % NPC_SPEED == 0) {
+				if (moveNPC()) {
+					return;
+				}
+				printNPC();
 			}
-			printNPC();
+
 		}
 		
+
+		if (isNeedPrintMap) {
+			isNeedPrintMap = false;
+			printMap();
+		}
 		
-		printTank();
+		//printTank();
 		counting += 1;
 		Sleep(20);
 	}
@@ -942,7 +1001,7 @@ boolean moveNPC() {
 				npc->direction = direction;
 				npc->check[direction] = 1;
 
-				remainMove = rand() % 10 + 1;
+				remainMove = rand() % 4 + 1;
 				npc->remainMove = remainMove;
 			}
 
@@ -962,7 +1021,14 @@ boolean moveNPC() {
 			}
 
 			if (detectConflictWithTank(x, y)) {
-				return true;
+				if (isTankUnbeatable) {
+					npc->remainMove = 0;
+					continue;
+				}
+				else {
+					return true;
+				}
+				
 			}
 
 			if (detectConflictWithWall(x, y) || detectConflictWithNPC(x,y)) {
@@ -970,7 +1036,13 @@ boolean moveNPC() {
 				continue;
 			}
 			SetCurrentCursorPos(GBOARD_ORIGIN_X + (npc->x * 2), GBOARD_ORIGIN_Y + npc->y);
-			printf("　");
+			if (map.map[npc->y][npc->x] == 4) {
+				printf("＊");
+			}
+			else {
+				printf("　");
+			}
+			
 			npc->x = x;
 			npc->y = y;
 			npc->check[1] = 0;
@@ -1046,7 +1118,21 @@ boolean detectConflictWithWall(int checkX, int checkY) {
 
 }
 
-void removeNPC(int x, int y) {
+// 아이템 블록과 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithItem(int checkX, int checkY) {
+
+	MAP map = ALL_MAP[ROUND];
+
+	int number = map.map[checkY][checkX];
+
+	if (number == 4) {
+		return true;
+	}
+
+	return false;
+}
+
+void removeNPC(int x, int y, boolean isDelete) {
 	NPC_HEAD npc_list = NPC_LIST[ROUND];
 
 	NPC* temp = npc_list.head;
@@ -1061,7 +1147,12 @@ void removeNPC(int x, int y) {
 
 			addScore(temp->number);
 
+			
 			temp->number -= 1;
+			if (isDelete) {
+				temp->number -= 1;
+			}
+
 			if (temp->number < 5) {
 
 				NPC_LIST[ROUND].num -= 1;
@@ -1151,12 +1242,18 @@ boolean moveTank(int direction) {
 		}
 
 		if (detectConflictWithNPC(tempX, tempY)) {
-			isGameOver = true;
-			return check;
+			if (isTankUnbeatable) {
+				return false;
+			}
+			else {
+				isGameOver = true;
+				return check;
+			}
 		}
 
 		switch (map.map[tempY][tempX]) {
 		case 0:
+		case 4:
 			SetCurrentCursorPos(GBOARD_ORIGIN_X + (myX * 2), GBOARD_ORIGIN_Y + myY);
 			printf("　");
 			myX = tempX;
@@ -1170,12 +1267,19 @@ boolean moveTank(int direction) {
 			break;
 		}
 
+
+		if (detectConflictWithItem(myX, myY)) {
+			ALL_MAP[ROUND].map[myY][myX] = 0;
+			useItem();
+		}
+
 		printTank();
 	}
 	else {
 		currentTankDirection = direction;
 
 		SetCurrentCursorPos(GBOARD_ORIGIN_X + (myX * 2), GBOARD_ORIGIN_Y + myY);
+		setFontColor(PLAYER_COLOR);
 		switch (currentTankDirection) {
 		case DIRECTION_LEFT:
 			printf("◀");
@@ -1190,11 +1294,323 @@ boolean moveTank(int direction) {
 			printf("▼");
 			break;
 		}
+		setFontColor(FONT_DEFAULT_COLOR);
 	}
 
 	
 
 	return check;
+
+}
+
+void useItem() {
+
+	srand((unsigned int)time(NULL));
+	int item = rand() % 10 + 1;
+
+	switch (item) {
+	case 1:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　NPC 스피드 업　　　");
+		_beginthread(NPCSpeedUp, 0, NULL);
+		break;
+	case 2:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　조작횟수 반감　　　");
+		mainDiceNumber = (mainDiceNumber+1)/2;
+		break;
+	case 3:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　　시야 가리기　　　");
+		_beginthread(restrictSight, 0, NULL);
+		Sleep(10);
+		printMap();
+		break;
+	case 4:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　벽 단계 증가 　　　");
+		mapDestroy(true);
+		break;
+	case 5:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　　NPC  추가　　　　");
+		addNewNPC();
+		break;
+	case 6:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　조작횟수 증가　　　");
+		mainDiceNumber += 2;
+		break;
+	case 7:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　벽 단계 감소 　　　");
+		mapDestroy(false);
+		break;
+	case 8:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　　NPC 멈추기　　　　");
+		_beginthread(NPCStop, 0, NULL);
+		break;
+	case 9:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　플레이어 무적　　　");
+		_beginthread(tankUnbeatable, 0, NULL);
+		break;
+	case 10:
+		SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
+		printf("　　　원하는 NPC 삭제　　");
+
+		removeOneNPC();
+
+		break;
+	}
+
+}
+
+void removeOneNPC() {
+
+	boolean temp = enableSight;
+	enableSight = true;
+
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
+	MAP map = ALL_MAP[ROUND];
+
+	if (npc_list.num == 0) {
+		isNPCStop = false;
+		isTankUnbeatable = false;
+		enableSight = temp;
+		return;
+	}
+
+	printMap();
+	printNPC();
+	printTank();
+
+	boolean isSelected = false;
+
+	NPC* npc = npc_list.head;
+
+	int x = npc->x;
+	int y = npc->y;
+	int number = npc->number;
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y);
+
+	setFontColor(FONT_LIGHT_RED_COLOR);
+	if (number == 5) {
+		printf("♤");
+	}
+	else if (number == 6) {
+		printf("♠");
+	}
+	setFontColor(FONT_DEFAULT_COLOR);
+
+	while (!isSelected) {
+
+		int key;
+		if (_kbhit() != 0)
+		{
+			key = _getch();
+			switch (key)
+			{
+			case LEFT:
+				printNPC();
+				npc = npc->leftLink;
+				x = npc->x;
+				y = npc->y;
+				number = npc->number;
+				SetCurrentCursorPos(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y);
+
+				setFontColor(FONT_LIGHT_RED_COLOR);
+				if (number == 5) {
+					printf("♤");
+				}
+				else if (number == 6) {
+					printf("♠");
+				}
+				setFontColor(FONT_DEFAULT_COLOR);
+
+				break;
+			case RIGHT:
+				printNPC();
+				npc = npc->rightLink;
+				x = npc->x;
+				y = npc->y;
+				number = npc->number;
+				SetCurrentCursorPos(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y);
+
+				setFontColor(FONT_LIGHT_RED_COLOR);
+				if (number == 5) {
+					printf("♤");
+				}
+				else if (number == 6) {
+					printf("♠");
+				}
+				setFontColor(FONT_DEFAULT_COLOR);
+
+				break;
+			case SPACE:
+				removeNPC(x, y, true);
+				printNPC();
+				isSelected = true;
+				break;
+			}
+
+		}
+
+
+		Sleep(20);
+	}
+
+	enableSight = temp;
+}
+
+void NPCSpeedUp(void * param) {
+
+	if (!isAlreadyNPCSpeed) {
+
+		isAlreadyNPCSpeed = true;
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 2;
+
+		NPC_SPEED = NPC_SPEED/2;
+		if (NPC_SPEED < 2) {
+			NPC_SPEED = 2;
+		}
+
+		while (remainDiceNumberByNPCSpeed < diceEnableNumber) {
+
+		}
+
+		NPC_SPEED = 40;
+		isAlreadyNPCSpeed = false;
+
+	}
+	else {
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 2;
+		NPC_SPEED = NPC_SPEED / 2;
+		if (NPC_SPEED < 2) {
+			NPC_SPEED = 2;
+		}
+	}
+
+}
+
+void NPCStop(void * param) {
+
+	if (!isAlreadyNPCStop) {
+
+		isAlreadyNPCStop = true;
+		remainDiceNumberByNPCStop = diceEnableNumber - 2;
+
+		isNPCStop = true;
+
+		while (remainDiceNumberByNPCSpeed < diceEnableNumber) {
+
+		}
+
+		isNPCStop = false;
+		isAlreadyNPCStop = false;
+
+	}
+	else {
+		remainDiceNumberByNPCStop = diceEnableNumber - 2;
+	}
+
+}
+
+void tankUnbeatable(void * param) {
+
+	if (!isAlreadyTankUnbeatable) {
+
+		isAlreadyTankUnbeatable = true;
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 2;
+
+		isTankUnbeatable = true;
+
+		while (remainDiceNumberByNPCSpeed < diceEnableNumber) {
+
+		}
+
+		isTankUnbeatable = false;
+		isAlreadyTankUnbeatable = false;
+
+	}
+	else {
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 2;
+	}
+
+}
+
+void mapDestroy(boolean isUp) {
+
+	for (int y = 0; y < ALL_MAP[ROUND].y; y++) {
+		for (int x = 0; x < ALL_MAP[ROUND].x; x++) {
+
+			int number = ALL_MAP[ROUND].map[y][x];
+			if (isUp) {
+				if (1 <= number && number <= 2) {
+					ALL_MAP[ROUND].map[y][x] += 1;
+				}
+			}
+			else {
+				if (2 <= number && number <= 3) {
+					ALL_MAP[ROUND].map[y][x] -= 1;
+				}
+			}
+		}
+	}
+
+	printMap();
+
+}
+
+void restrictSight(void * param) {
+
+	if (!isAlreadySight) {
+
+		isAlreadySight = true;
+		remainDiceNumberBySight = diceEnableNumber - 10;
+
+		enableSight = false;
+
+		while (remainDiceNumberBySight < diceEnableNumber) {
+
+		}
+
+		enableSight = true;
+		isNeedPrintMap = true;
+		isAlreadySight = false;
+
+	}
+	else {
+		remainDiceNumberBySight = diceEnableNumber - 10;
+	}
+
+	
+
+}
+
+void addNewNPC() {
+
+	int x = rand() % ALL_MAP[ROUND].x;
+	x = x - (x % 2);
+	int y = rand() % ALL_MAP[ROUND].y;
+	y = y - (y % 2);
+	int number = 5;
+
+	while (1) {
+		if ((detectConflictWithTank(x, y) == false) && (detectConflictWithNPC(x, y) == false) && (detectConflictWithItem(x, y) == false) && (detectConflictWithWall(x, y) == false)) {
+			break;
+		}
+		else {
+			x = rand() % ALL_MAP[ROUND].x;
+			x = x - (x % 2);
+			y = rand() % ALL_MAP[ROUND].y;
+			y = y - (y % 2);
+		}
+	}
+
+	addNPC(NPC_LIST[ROUND], x, y, number);
 
 }
 
@@ -1237,7 +1653,7 @@ void moveMissile() {
 
 			if (detectConflictWithNPC(x, y)) {
 				m->isEnable = false;
-				removeNPC(x, y);
+				removeNPC(x, y, false);
 				printNPC();
 			}
 			else if (detectConflictWithWall(x, y)) {
@@ -1246,7 +1662,7 @@ void moveMissile() {
 				printMap();
 			}
 			else {
-				if (map.map[y][x] == 0) {
+				if (map.map[y][x] == 0 || map.map[y][x] == 4) {
 					m->x = x;
 					m->y = y;
 				}
@@ -1275,6 +1691,13 @@ void printMissile() {
 			int y = m->y;
 			int direction = m->direction;
 
+			if(!enableSight){
+				if ((myX - restrictSightRange > x && x > myX + restrictSightRange) && (myY - restrictSightRange < y && y>myY+ restrictSightRange)) {
+					m = m->next;
+					continue;
+				}
+			}
+
 			SetCurrentCursorPos(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y);
 			switch (direction) {
 			case DIRECTION_LEFT:
@@ -1299,6 +1722,7 @@ void printMissile() {
 void printTank() {
 
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + (myX * 2), GBOARD_ORIGIN_Y + myY);
+	setFontColor(PLAYER_COLOR);
 	switch (currentTankDirection) {
 	case DIRECTION_LEFT:
 		printf("◀");
@@ -1313,7 +1737,12 @@ void printTank() {
 		printf("▼");
 		break;
 	}
+	setFontColor(FONT_DEFAULT_COLOR);
 
+	if(!enableSight){
+		printMap();
+	}
+	
 }
 
 // NPC의 현재 위치를 출력
@@ -1335,6 +1764,18 @@ void printNPC() {
 		int number = npc->number;
 
 		SetCurrentCursorPos(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y);
+
+		if (!enableSight) {
+			if ((myX - restrictSightRange <= x && x <= myX + restrictSightRange) && (myY - restrictSightRange <= y && y <= myY + restrictSightRange)) {
+
+			}
+			else {
+				printf("　");
+				npc = npc->rightLink;
+				continue;
+			}
+		}
+
 		if (number == 5) {
 			printf("♤");
 		}
@@ -1357,6 +1798,17 @@ void printMap() {
 		for (int x = 0; x < map.x; x++) {
 
 			SetCurrentCursorPos(GBOARD_ORIGIN_X + (x*2), GBOARD_ORIGIN_Y + y);
+
+			if (!enableSight) {
+				if ((myX - restrictSightRange <= x && x <= myX + restrictSightRange) && (myY - restrictSightRange <= y && y <= myY + restrictSightRange)) {
+					
+				}
+				else {
+					printf("　");
+					continue;
+				}
+			}
+
 			switch (map.map[y][x]) {
 			case 0:
 				//printf("　");
@@ -1371,7 +1823,7 @@ void printMap() {
 				printf("▣");
 				break;
 			case 4:
-				printf("▩");
+				printf("＊");
 				break;
 			case 5:
 				printf("♠");
@@ -1606,6 +2058,9 @@ void setConsoleSize(int cols, int lines) {
 
 	system(commend);
 
+}
+void setFontColor(int color) {
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 // 제공받은 함수
 void SetCurrentCursorPos(int x, int y)
