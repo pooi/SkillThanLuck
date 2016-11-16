@@ -90,6 +90,7 @@ int CURRENT_MAP_WIDTH = 0;
 int CURRENT_MAP_HEIGHT = 0;
 
 int ROUND = 0;
+int TOTAL_SCORE = 0;
 int MAXIMUM_ROUND = 20;
 int LIFE = 0;
 int mainDiceNumber = 0;
@@ -243,8 +244,8 @@ void initPage() {
 
 	drawInitDefault();
 
+	TOTAL_SCORE = 0;
 	int tempRound = -1;
-
 
 	while (1) {
 
@@ -2148,6 +2149,7 @@ void showCurrentRoundScore(boolean success) {
 
 		SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 12, GBOARD_ORIGIN_Y + (i * 5));
 		printf("%2d 라운드 총 점수 = %d", ROUND, totalScore);
+		TOTAL_SCORE += totalScore;
 		i += 1;
 		for (int k = 0; k < delay / 25; k++) {
 			if (_kbhit() != 0)
@@ -2197,15 +2199,74 @@ void showCurrentRoundScore(boolean success) {
 boolean showFinishPage() {
 
 
+
+
+	int count = 0;
+	int temp = TOTAL_SCORE;
+
+	while (temp > 0) {
+
+		count += 1;
+		temp /= 10;
+
+	}
+
+	int width = 0;
+	if (count * 10 > INIT_PAGE_WIDHT) {
+		width = count * 10;
+	}
+	else {
+		width = INIT_PAGE_WIDHT;
+	}
+	int tempWidth = count * 10;
+	tempWidth = width / 2 - tempWidth / 2;
+
 	system("cls");
-	setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
+	setConsoleSize(width, INIT_PAGE_HEIGHT);
 
 
-	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2);
-	printf("클리어!!");
+	temp = TOTAL_SCORE;
+	int* num = (int*)malloc(sizeof(int)*count);
+
+	for (int i = 0; i < count; i++) {
+		num[i] = temp;
+		temp /= 10;
+	}
+
+	for (int k = 0; k < count; k++) {
+		//SetCurrentCursorPos(k * 10, INIT_PAGE_HEIGHT / 2);
+		int a = num[count-k-1];
+		for (int j = 0; j < BIG_NUMBER_HEIGHT; j++) {
+			for (int i = 0; i < BIG_NUMBER_WIDHT; i++) {
+
+				if (bigNumber[a%10][j][i] == 0) {
+					SetCurrentCursorPos(tempWidth + k * 10 + i*2, INIT_PAGE_HEIGHT / 2 - BIG_NUMBER_HEIGHT/2 + j);
+					printf("　");
+				}
+				else {
+					SetCurrentCursorPos(tempWidth + k * 10 + i * 2, INIT_PAGE_HEIGHT / 2 - BIG_NUMBER_HEIGHT / 2 + j);
+					printf("■");
+				}
+
+			}
+		}
 
 
-	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 14, INIT_PAGE_HEIGHT / 2 + 15);
+	}
+
+	if (LIFE <= 0) {
+		SetCurrentCursorPos(width / 2 - 6, 5);
+		printf("Game Over!!!");
+	}
+	else {
+		SetCurrentCursorPos(width / 2 - 6, 5);
+		printf("Game Clear!!");
+	}
+
+	SetCurrentCursorPos(width / 2 - 5, 15);
+	printf("Total Score");
+
+	SetCurrentCursorPos(width / 2 - 12, INIT_PAGE_HEIGHT / 2 + 15);
 	printf("Press any key to continue");
 
 	while (1) {
