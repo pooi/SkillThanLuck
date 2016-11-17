@@ -275,6 +275,8 @@ void initPage() {
 				drawInitDefault();
 				break;
 			case KEY_Q: // 게임 종료
+				system("cls");
+				SetCurrentCursorPos(INIT_PAGE_WIDHT/2-10, INIT_PAGE_HEIGHT/2);
 				exit(1);
 				break;
 			case SPACE:
