@@ -94,6 +94,7 @@ int TOTAL_SCORE = 0;
 int MAXIMUM_ROUND = 20;
 int LIFE = 0;
 int mainDiceNumber = 0;
+int controlPoint = 0;
 int itemDiceNumber = 0;
 int diceEnableNumber = 0;
 int myX = 0;
@@ -685,6 +686,7 @@ void gameStart() {
 	CURRENT_MAP_HEIGHT = map.y;
 
 	mainDiceNumber = 0;
+	controlPoint = 0;
 	itemDiceNumber = 0;
 	diceEnableNumber = map.count;
 	myX = map.startX;
@@ -735,11 +737,11 @@ void gameStart() {
 			case LEFT:
 				if (!enableDice) {
 					if (moveTank(DIRECTION_LEFT)) {
-						mainDiceNumber -= 1;
+						controlPoint -= 1;
 						//drawRemainCount();
 					}
 
-					if (mainDiceNumber <= 0) {
+					if (controlPoint <= 0) {
 						if (diceEnableNumber == 0) {
 							isGameOver = true;
 							return;
@@ -747,6 +749,7 @@ void gameStart() {
 						enableDice = true;
 						enableMoveNPC = false;
 						itemDiceNumber = 0;
+						mainDiceNumber = 0;
 						//drawDice();
 					}
 				}
@@ -754,11 +757,11 @@ void gameStart() {
 			case RIGHT:
 				if (!enableDice) {
 					if (moveTank(DIRECTION_RIGHT)) {
-						mainDiceNumber -= 1;
+						controlPoint -= 1;
 						//drawRemainCount();
 					}
 
-					if (mainDiceNumber <= 0) {
+					if (controlPoint <= 0) {
 						if (diceEnableNumber == 0) {
 							isGameOver = true;
 							return;
@@ -766,6 +769,7 @@ void gameStart() {
 						enableDice = true;
 						enableMoveNPC = false;
 						itemDiceNumber = 0;
+						mainDiceNumber = 0;
 						//drawDice();
 					}
 				}
@@ -773,11 +777,11 @@ void gameStart() {
 			case UP:
 				if (!enableDice) {
 					if (moveTank(DIRECTION_UP)) {
-						mainDiceNumber -= 1;
+						controlPoint -= 1;
 						//drawRemainCount();
 					}
 
-					if (mainDiceNumber <= 0) {
+					if (controlPoint <= 0) {
 						if (diceEnableNumber == 0) {
 							isGameOver = true;
 							return;
@@ -785,6 +789,7 @@ void gameStart() {
 						enableDice = true;
 						enableMoveNPC = false;
 						itemDiceNumber = 0;
+						mainDiceNumber = 0;
 						//drawDice();
 					}
 				}
@@ -792,11 +797,11 @@ void gameStart() {
 			case DOWN:
 				if (!enableDice) {
 					if (moveTank(DIRECTION_DOWN)) {
-						mainDiceNumber -= 1;
+						controlPoint -= 1;
 						//drawRemainCount();
 					}
 
-					if (mainDiceNumber <= 0) {
+					if (controlPoint <= 0) {
 						if (diceEnableNumber == 0) {
 							isGameOver = true;
 							return;
@@ -804,6 +809,7 @@ void gameStart() {
 						enableDice = true;
 						enableMoveNPC = false;
 						itemDiceNumber = 0;
+						mainDiceNumber = 0;
 						//drawDice();
 					}
 				}
@@ -816,17 +822,18 @@ void gameStart() {
 					diceEnableNumber -= 1;
 					srand((unsigned int)time(NULL));
 					mainDiceNumber = rand() % 6 + 1;
-					itemDiceNumber = rand() % 7;
+					controlPoint = mainDiceNumber;
+					itemDiceNumber = rand() % 6 + 1;
 					//drawDice();
 					//drawRemainCount();
 				}
 				else {
 					addMissile(myX, myY, currentTankDirection);
 
-					mainDiceNumber -= 1;
+					controlPoint -= 1;
 					//drawRemainCount();
 
-					if (mainDiceNumber <= 0) {
+					if (controlPoint <= 0) {
 						if (diceEnableNumber == 0) {
 							isGameOver = true;
 							return;
@@ -834,6 +841,7 @@ void gameStart() {
 						enableDice = true;
 						enableMoveNPC = false;
 						itemDiceNumber = 0;
+						mainDiceNumber = 0;
 						//drawDice();
 					}
 				}
@@ -1019,7 +1027,7 @@ void drawDice() {
 	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 11 + DICE_WIDTH * 2, GBOARD_ORIGIN_Y + 3 + DICE_HEIGHT, "아이템 번호");
 
 
-	if (mainDiceNumber == 0) {
+	if (controlPoint == 0) {
 		BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y + 2 + DICE_HEIGHT / 2 + 1, "Spacebar를 눌러 주사위를 굴려주세요.");
 	}
 
@@ -1031,14 +1039,14 @@ void drawRemainCount() {
 
 	char string[20];
 
-	sprintf(string, "남은 조작 횟수 %d번", mainDiceNumber);
+	sprintf(string, "남은 조작 횟수 %d번", controlPoint);
 
 	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 10, GBOARD_ORIGIN_Y + 4 + DICE_HEIGHT + 2, string);
 
 
 	for (int j = 0; j < BIG_NUMBER_HEIGHT; j++) {
 		for (int i = 0; i < BIG_NUMBER_WIDHT; i++) {
-			if (bigNumber[mainDiceNumber][j][i] == 0) {
+			if (bigNumber[controlPoint][j][i] == 0) {
 				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - BIG_NUMBER_WIDHT + i * 2, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + j, "　");
 			}
 			else {
@@ -1496,7 +1504,8 @@ void printItemNotiMessage() {
 void useItem() {
 
 	srand((unsigned int)time(NULL));
-	int item = rand() % 10 + 1;
+	int item = rand() % 5 + 6 - 5 * (itemDiceNumber % 2);
+
 
 	switch (item) {
 	case 1:
@@ -1507,7 +1516,7 @@ void useItem() {
 	case 2:
 		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
 		//printf("　　　조작횟수 반감　　　");
-		mainDiceNumber = (mainDiceNumber + 1) / 2;
+		controlPoint = (controlPoint + 1) / 2;
 		break;
 	case 3:
 		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
@@ -1529,7 +1538,7 @@ void useItem() {
 	case 6:
 		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
 		//printf("　　　조작횟수 증가　　　");
-		mainDiceNumber += 2;
+		controlPoint += 2;
 		break;
 	case 7:
 		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
@@ -2148,7 +2157,7 @@ void showCurrentRoundScore(boolean success) {
 		}
 
 		SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 12, GBOARD_ORIGIN_Y + (i * 5));
-		printf("%2d 라운드 총 점수 = %d", ROUND, totalScore);
+		printf("%2d 라운드 총 점수 = %d", ROUND+1, totalScore);
 		TOTAL_SCORE += totalScore;
 		i += 1;
 		for (int k = 0; k < delay / 25; k++) {
