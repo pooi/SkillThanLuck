@@ -198,37 +198,36 @@ int main() {
 
 	while (check) {
 
-		ROUND = 0;
+		ROUND = 0; // 라운드 초기화
 
-		initPage();
+		initPage(); // 인트로 페이지
 
+		LIFE = 5; // 라이프 초기화
 
-		LIFE = 5;
+		while (ROUND<MAXIMUM_ROUND) { // 게임을 모두 클리어 하거나 라이프가 0일때까지 반복
 
-		while (ROUND<MAXIMUM_ROUND) {
+			gameStart(); // 게임 시작
+			Release(); // 버퍼 클리어
 
-			gameStart();
-			Release();
+			showCurrentRoundScore(isSuccess); // 현재 라운드의 점수를 보여줌
 
-			showCurrentRoundScore(isSuccess);
+			Sleep(DEFAULT_NPC_SPEED); // 잔여 스레드가 없도록 약간에 텀을 줌
+			int key = _getch();
+			while (_kbhit() != 0) { key = _getch(); } // 불필요한 입력 흡수
 
-			Sleep(DEFAULT_NPC_SPEED);
+			ROUND += 1; // 라운드를 증가시키고 새로 게임 시작
 
-			ROUND += 1;
-
-			if (LIFE <= 0) {
+			if (LIFE <= 0) { // 라이프가 모두 소진되면 게임 종료
 				break;
 			}
 
 		}
 
-		check = showFinishPage();
+		check = showFinishPage(); // 사용자가 종료를 원하면 FALSE, 계속을 원하면 TRUE
 
 	}
 
 	exit(1);
-
-	getchar();
 
 	return 0;
 }
@@ -250,8 +249,7 @@ void initPage() {
 
 	while (1) {
 
-		if (ROUND != tempRound) {
-
+		if (ROUND != tempRound) { // 라운드가 바뀌면 화면 새로고침
 			tempRound = ROUND;
 			SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2 + 2);
 			printf("◀  %d  ▶", ROUND + 1);
@@ -264,19 +262,19 @@ void initPage() {
 			key = _getch();
 			switch (key)
 			{
-			case LEFT:
+			case LEFT: // 시작 라운드 감소
 				ROUND = (ROUND - 1);
 				if (ROUND < 0)
 					ROUND = MAXIMUM_ROUND - 1;
 				break;
-			case RIGHT:
+			case RIGHT: // 시작 라운드 증가
 				ROUND = (ROUND + 1) % MAXIMUM_ROUND;
 				break;
-			case KEY_I:
+			case KEY_I: // 안내페이지로 이동
 				helpPage();
 				drawInitDefault();
 				break;
-			case KEY_Q:
+			case KEY_Q: // 게임 종료
 				exit(1);
 				break;
 			case SPACE:
@@ -288,12 +286,15 @@ void initPage() {
 			}
 
 		}
+
+		Sleep(20);
 	}
 
 }
 
 // 초기 페이지를 그림
 void drawInitDefault() {
+
 	system("cls");
 	setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
 
@@ -648,8 +649,45 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
 	printf("* ▩ : 함정\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
-	printf("* ＝,∥ : 미사일\n\n");
+	printf("* ＝,∥ : 미사일\n\n\n");
 
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
+	printf("● 아이템\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X+2, GetCurrentCursorPos().Y);
+	printf("아이템 주사위의 눈금이 짝수면 유리한 아이템, 홀수면 불리한 아이템 중 랜덤으로 실행됩니다.\n\n\n");
+
+	y = GetCurrentCursorPos().Y;
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("● 유리한 아이템\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
+	printf("* NPC 일시 정지\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
+	printf("* 조작 횟수 +2\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
+	printf("* 모든 부실 수 있는 벽 단계 감소\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
+	printf("* 탱크 일시 무적\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
+	printf("* 원하는 NPC 하나 삭제\n\n");
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 40, y);
+	printf("● 불리한 아이템\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
+	printf("* NPC 속도 증가\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
+	printf("* 조작 횟수 반감\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
+	printf("* 플레이어 시야 가리기\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
+	printf("* 모든 부실 수 있는 벽 단계 증가\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
+	printf("* NPC 추가\n\n");
+	
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y+2);
+	printf("ESC, BACKSPACE : 뒤로가기");
 
 	while (1) {
 		int key;
@@ -1704,15 +1742,15 @@ void NPCSpeedUp(void * param) {
 	if (!isAlreadyNPCSpeed) {
 
 		isAlreadyNPCSpeed = true;
-		remainDiceNumberByNPCSpeed = diceEnableNumber - 2;
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
 
 		NPC_SPEED = NPC_SPEED / 2;
 		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
 			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
 		}
 
-		while (remainDiceNumberByNPCSpeed < diceEnableNumber) {
-
+		while (remainDiceNumberByNPCSpeed < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
 		}
 
 		NPC_SPEED = DEFAULT_NPC_SPEED;
@@ -1720,7 +1758,7 @@ void NPCSpeedUp(void * param) {
 
 	}
 	else {
-		remainDiceNumberByNPCSpeed = diceEnableNumber - 2;
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
 		NPC_SPEED = NPC_SPEED / 2;
 		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
 			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
@@ -1738,12 +1776,12 @@ void NPCStop(void * param) {
 	if (!isAlreadyNPCStop) {
 
 		isAlreadyNPCStop = true;
-		remainDiceNumberByNPCStop = diceEnableNumber - 2;
+		remainDiceNumberByNPCStop = diceEnableNumber - 3;
 
 		isNPCStop = true;
 
-		while (remainDiceNumberByNPCStop < diceEnableNumber) {
-
+		while (remainDiceNumberByNPCStop < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
 		}
 
 		isNPCStop = false;
@@ -1751,7 +1789,7 @@ void NPCStop(void * param) {
 
 	}
 	else {
-		remainDiceNumberByNPCStop = diceEnableNumber - 2;
+		remainDiceNumberByNPCStop = diceEnableNumber - 3;
 	}
 
 	OutputDebugString(L"NPCStop : OUT\n");
@@ -1764,12 +1802,12 @@ void tankUnbeatable(void * param) {
 	if (!isAlreadyTankUnbeatable) {
 
 		isAlreadyTankUnbeatable = true;
-		remainDiceNumberByTankUnbeatable = diceEnableNumber - 2;
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
 
 		isTankUnbeatable = true;
 
-		while (remainDiceNumberByTankUnbeatable < diceEnableNumber) {
-
+		while (remainDiceNumberByTankUnbeatable < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
 		}
 
 		isTankUnbeatable = false;
@@ -1777,9 +1815,37 @@ void tankUnbeatable(void * param) {
 
 	}
 	else {
-		remainDiceNumberByTankUnbeatable = diceEnableNumber - 2;
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
 	}
 	OutputDebugString(L"tankUnbeatable : OUT\n");
+
+}
+
+void restrictSight(void * param) {
+
+	OutputDebugString(L"restrictSight : IN\n");
+	if (!isAlreadySight) {
+
+		isAlreadySight = true;
+		remainDiceNumberBySight = diceEnableNumber - 4;
+
+		enableSight = false;
+
+		while (remainDiceNumberBySight < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
+		}
+
+		enableSight = true;
+		isNeedPrintMap = true;
+		isAlreadySight = false;
+
+	}
+	else {
+		remainDiceNumberBySight = diceEnableNumber - 4;
+	}
+
+	OutputDebugString(L"restrictSight : OUT\n");
+
 
 }
 
@@ -1804,34 +1870,6 @@ void mapDestroy(boolean isUp) {
 			}
 		}
 	}
-
-}
-
-void restrictSight(void * param) {
-
-	OutputDebugString(L"restrictSight : IN\n");
-	if (!isAlreadySight) {
-
-		isAlreadySight = true;
-		remainDiceNumberBySight = diceEnableNumber - 2;
-
-		enableSight = false;
-
-		while (remainDiceNumberBySight < diceEnableNumber) {
-
-		}
-
-		enableSight = true;
-		isNeedPrintMap = true;
-		isAlreadySight = false;
-
-	}
-	else {
-		remainDiceNumberBySight = diceEnableNumber - 2;
-	}
-
-	OutputDebugString(L"restrictSight : OUT\n");
-
 
 }
 
