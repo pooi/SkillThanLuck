@@ -28,10 +28,16 @@
 #define KEY_R 114
 
 #define FONT_DEFAULT_COLOR 7
-#define FONT_RED_COLOR 4
-#define FONT_LIGHT_RED_COLOR 12
-#define FONT_GREED_COLOR 2
 #define FONT_BLUE_COLOR 1
+#define FONT_RED_COLOR 4
+#define FONT_WHITE_COLOR 15
+#define FONT_GREED_COLOR 2
+#define FONT_JADE_COLOR 3
+#define FONT_LIGHT_RED_COLOR 12
+#define FONT_LIGHT_GREEN_COLOR 10
+#define FONT_LIGHT_YELLOW_COLOR 14
+#define FONT_LIGHT_BLUE_COLOR 9
+#define FONT_LIGHT_JADE_COLOR 11
 #define PLAYER_COLOR 9
 
 #define DEFAULT_NPC_SPEED 800
@@ -144,6 +150,7 @@ void helpPage();
 void gameStart();
 void drawGamePage();
 void printLife();
+void printNotiMessage();
 void printItemNotiMessage();
 void removeWall(int x, int y);
 boolean moveTank(int direction);
@@ -929,6 +936,8 @@ void drawGamePage() {
 
 	drawRemainCount();
 
+	printNotiMessage();
+
 	printItemNotiMessage();
 
 	Flipping();
@@ -951,6 +960,23 @@ void printLife() {
 
 }
 
+void printNotiMessage() {
+
+	/*if (diceEnableNumber <= 5) {
+
+		char string[30];
+
+		sprintf(string, "경고 : 남은 조작 횟수 %d번", diceEnableNumber);
+
+		setBufferFontColor(FONT_LIGHT_RED_COLOR);
+		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 1, string);
+		setBufferFontColor(FONT_DEFAULT_COLOR);
+
+	}*/
+
+
+}
+
 // 주사위 영역을 그림
 void drawDice() {
 
@@ -958,7 +984,11 @@ void drawDice() {
 
 	sprintf(string, "주사위를 굴릴 수 있는 남은 횟수 : %2d", diceEnableNumber);
 
+	if (diceEnableNumber <= 5) {
+		setBufferFontColor(FONT_LIGHT_RED_COLOR);
+	}
 	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y, string);
+	setBufferFontColor(FONT_DEFAULT_COLOR);
 
 	// 다이스 틀
 	for (int y = 0; y < DICE_HEIGHT + 3; y++) {
@@ -1068,7 +1098,9 @@ void drawDice() {
 
 
 	if (controlPoint == 0) {
+		setBufferFontColor(FONT_LIGHT_GREEN_COLOR);
 		BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y + 2 + DICE_HEIGHT / 2 + 1, "Spacebar를 눌러 주사위를 굴려주세요.");
+		setBufferFontColor(FONT_DEFAULT_COLOR);
 	}
 
 }
@@ -1357,7 +1389,7 @@ void moveNPC(void * param) {
 						npc->direction = direction;
 						npc->check[direction] = 1;
 
-						remainMove = rand() % 4 + 1;
+						remainMove = rand() % 5 + 1;
 						npc->remainMove = remainMove;
 					}
 
@@ -1396,6 +1428,7 @@ void moveNPC(void * param) {
 
 					npc->x = x;
 					npc->y = y;
+					npc->remainMove -= 1;
 					npc->check[1] = 0;
 					npc->check[2] = 0;
 					npc->check[3] = 0;
@@ -1504,7 +1537,7 @@ void printItemNotiMessage() {
 
 		sprintf(string, "NPC 속도 증가 종료까지 : %d번", diceEnableNumber - remainDiceNumberByNPCSpeed);
 
-		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 2 + count, string);
+		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 3 + count, string);
 
 		count += 1;
 	}
@@ -1514,7 +1547,7 @@ void printItemNotiMessage() {
 
 		sprintf(string, "NPC 멈춤 종료까지 : %d번", diceEnableNumber - remainDiceNumberByNPCStop);
 
-		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 2 + count, string);
+		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 3 + count, string);
 
 		count += 1;
 	}
@@ -1524,7 +1557,7 @@ void printItemNotiMessage() {
 
 		sprintf(string, "플레이어 무적 종료까지 : %d번", diceEnableNumber - remainDiceNumberByTankUnbeatable);
 
-		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 2 + count, string);
+		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 3 + count, string);
 
 		count += 1;
 	}
@@ -1534,7 +1567,7 @@ void printItemNotiMessage() {
 
 		sprintf(string, "시야가리기 종료까지 : %d번", diceEnableNumber - remainDiceNumberBySight);
 
-		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 2 + count, string);
+		BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT + 3 + count, string);
 
 		count += 1;
 	}
@@ -1548,61 +1581,39 @@ void useItem() {
 
 
 	switch (item) {
-	case 1:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　NPC 스피드 업　　　");
+	case 1: // NPC 스피드 업
 		_beginthread(NPCSpeedUp, 1, NULL);
 		break;
-	case 2:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　조작횟수 반감　　　");
+	case 2: // 조작횟수 반감
 		controlPoint = (controlPoint + 1) / 2;
 		break;
-	case 3:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　　시야 가리기　　　");
+	case 3: // 시야 가리기
 		_beginthread(restrictSight, 2, NULL);
 		Sleep(10);
 		isNeedPrintMap = true;
 		break;
-	case 4:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　벽 단계 증가 　　　");
+	case 4: // 벽 단계 증가
 		mapDestroy(true);
 		break;
-	case 5:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　　NPC  추가　　　　");
+	case 5: // NPC 추가
 		addNewNPC();
 		break;
-	case 6:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　조작횟수 증가　　　");
+	case 6: // 조작횟수 증가
 		controlPoint += 2;
 		break;
-	case 7:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　벽 단계 감소 　　　");
+	case 7: // 벽 단계 감소
 		mapDestroy(false);
 		break;
-	case 8:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　　NPC 멈추기　　　　");
+	case 8: // NPC 멈추기
 		_beginthread(NPCStop, 3, NULL);
 		break;
-	case 9:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　플레이어 무적　　　");
+	case 9: // 플레이어 무적
 		_beginthread(tankUnbeatable, 4, NULL);
 		Sleep(10);
 		printTank();
 		break;
-	case 10:
-		//SetCurrentCursorPos(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 13, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + 10);
-		//printf("　　　원하는 NPC 삭제　　");
-
+	case 10: // 원하는 NPC 삭제
 		removeOneNPC();
-
 		break;
 	}
 
@@ -2000,7 +2011,9 @@ void printNPC() {
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 			else {
+				if (isNPCStop) {setBufferFontColor(3);}
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 		}
 		else if (number == 6) {
@@ -2011,7 +2024,9 @@ void printNPC() {
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 			else {
+				if (isNPCStop) { setBufferFontColor(FONT_JADE_COLOR); }
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 		}
 
