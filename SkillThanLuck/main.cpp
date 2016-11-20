@@ -48,6 +48,7 @@ typedef struct MAP {
 	int x, y;
 	int startX, startY;
 	int count;
+	int hook;
 	int** map;
 }MAP;
 
@@ -429,6 +430,7 @@ void loadMap() {
 		fscanf(f, "%d", &ALL_MAP[i].x);
 		fscanf(f, "%d", &ALL_MAP[i].y);
 		fscanf(f, "%d", &ALL_MAP[i].count);
+		fscanf(f, "%d", &ALL_MAP[i].hook);
 
 		// 맵 초기화 구문
 		ALL_MAP[i].map = (int**)malloc(sizeof(int*)*ALL_MAP[i].y);
@@ -863,7 +865,7 @@ void gamePageInit() {
 	diceEnableNumber = map.count;
 	myX = map.startX;
 	myY = map.startY;
-	hookCount = 5;
+	hookCount = map.hook;
 	currentTankDirection = DIRECTION_UP;
 
 	enableDice = true;
