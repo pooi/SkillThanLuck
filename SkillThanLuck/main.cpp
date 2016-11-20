@@ -26,6 +26,7 @@
 #define KEY_I 105
 #define KEY_Q 113
 #define KEY_R 114
+#define KEY_C 99
 
 #define FONT_DEFAULT_COLOR 7
 #define FONT_BLUE_COLOR 1
@@ -42,9 +43,6 @@
 
 #define DEFAULT_NPC_SPEED 800
 
-// 스크린 버퍼 관련 변수
-int nBufferIndex = 0;
-HANDLE hBuffer[2];
 
 typedef struct MAP {
 	int x, y;
@@ -77,13 +75,24 @@ typedef struct MISSILE {
 	MISSILE * next;
 }MISSILE;
 
+typedef struct HOOK {
+
+	int x, y;
+	int direction;
+	HOOK * next;
+
+}HOOK;
+
 typedef struct SCORE {
 	int number;
 	int count;
 	SCORE* next;
 }SCORE;
 
-// 전역 변수 선언부
+/*==============================*/
+/*====== 전역 변수 선언부 ======*/
+
+// 화면 요소 관련
 const int GBOARD_ORIGIN_X = 8;
 const int GBOARD_ORIGIN_Y = 4;
 const int INIT_PAGE_WIDHT = 150;
@@ -95,6 +104,7 @@ int CURRENT_CONSOLE_HEIGHT = 0;
 int CURRENT_MAP_WIDTH = 0;
 int CURRENT_MAP_HEIGHT = 0;
 
+// 게임 진행에 필요한 변수
 int ROUND = 0;
 int TOTAL_SCORE = 0;
 int MAXIMUM_ROUND = 20;
@@ -105,14 +115,17 @@ int itemDiceNumber = 0;
 int diceEnableNumber = 0;
 int myX = 0;
 int myY = 0;
+int hookCount = 0;
 boolean enableDice = false;
 boolean enableMoveNPC = false;
+boolean enableDirectionKey = true;
 boolean isGameOver = false;
 boolean isSuccess = false;
-boolean isNeedPrintMap = false;
+boolean isHook = false;
 MAP* ALL_MAP = NULL;
 NPC_HEAD* NPC_LIST = NULL;
 MISSILE* ALL_MISSILE = NULL;
+HOOK * HOOK_LIST = NULL;
 SCORE* SCORE_LIST = NULL;
 
 // 아이템 관련 전역 변수
@@ -131,65 +144,107 @@ boolean isAlreadyTankUnbeatable = false;
 boolean isNPCStop = false;
 boolean isTankUnbeatable = false;
 
-// 함수 선언부
-void SetCurrentCursorPos(int x, int y);
-void SetCurrentCursorPos(COORD current);
-COORD GetCurrentCursorPos(void);
-void GetCurrentCursorPos(int& x, int & y);
-void RemoveCursor(void);
-void setFontColor(int color);
+// 스크린 버퍼 관련 변수
+int nBufferIndex = 0;
+HANDLE hBuffer[2];
 
-void setConsoleSize(int cols, int lines);
+/*==============================*/
+/*==============================*/
+
+
+/*=========================*/
+/*====== 함수 선언부 ======*/
+
+// 초기 페이지
 void initPage();
 void drawInitDefault();
-void removeAllNPCList();
 void loadMap();
-void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC);
-void removeNPC(int x, int y, boolean isDelete);
-void helpPage();
-void gameStart();
-void drawGamePage();
-void printLife();
-void printNotiMessage();
-void printItemNotiMessage();
-void removeWall(int x, int y);
-boolean moveTank(int direction);
-void moveNPC(void * param);
-void removeAllMissile();
+
+// 연결 리스트와 관련된 함수
 void addMissile(int x, int y, int direction);
+void removeAllMissile();
+void addHook(int x, int y, int direction, boolean isHead);
+void removeAllHook();
+void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC);
+void removeAllNPCList();
 void addScore(int number);
 void removeAllScore();
+
+// 도움말 페이지
+void helpPage();
+
+// 게임 관련
+void gameStart();
+void gamePageInit();
+void controlDirectionKey(int direction);
+void drawGamePage();
+
+// 맵 주변 안내 문구 출력부
+void printLife();
+void printRemainHook();
+void printNotiMessage();
+void printItemNotiMessage();
+
+// 조작 관련된 UI 출력부
+void drawDice();
+void drawRemainCount();
+
+// 맵과 연관된 객체 출력부
+void printHook();
+void printTank();
+void printNPC();
+void printMap();
 void printMissile();
-void moveMissile(void * param);
+
+// 충돌 체크
 boolean detectConflictWithTank(int checkX, int checkY);
 boolean detectConflictWithNPC(int checkX, int checkY);
 boolean detectConflictWithWall(int checkX, int checkY);
 boolean detectConflictWithItem(int checkX, int checkY);
+
+// 미사일과 관련된 액션
+void removeNPC(int x, int y, boolean isDelete);
+void removeWall(int x, int y);
+
+// 객체의 이동과 관련된 함수
+boolean moveTank(int direction);
+void moveNPC(void * param);
+void moveMissile(void * param);
+void useHook(void * param);
+
+// 아이템 사용과 관련된 함수
 void useItem();
+void removeOneNPC();
+void mapDestroy(boolean isUp);
+void addNewNPC();
 void NPCSpeedUp(void * param);
 void restrictSight(void * param);
 void NPCStop(void * param);
 void tankUnbeatable(void * param);
-void mapDestroy(boolean isUp);
-void addNewNPC();
-void removeOneNPC();
-void printTank();
-void printNPC();
-void printMap();
-void drawDice();
-void reduceControlPoint();
-void reduceControlPoint(int direction);
-void drawRemainCount();
+
+// 게임 종료와 관련된 함수
 void showCurrentRoundScore(boolean success);
 boolean showFinishPage();
 
-// 스크린 버퍼 관련 함수
+// 부가 함수
 void CreateBuffer();
 void BufferWrite(int x, int y, char *string);
 void Flipping();
 void BufferClear();
 void Release();
 void setBufferFontColor(int color);
+void setFontColor(int color);
+void setConsoleSize(int cols, int lines);
+
+void SetCurrentCursorPos(int x, int y);
+void SetCurrentCursorPos(COORD current);
+COORD GetCurrentCursorPos(void);
+void GetCurrentCursorPos(int& x, int & y);
+void RemoveCursor(void);
+
+/*=========================*/
+/*=========================*/
+
 
 
 /*================================================*/
@@ -342,6 +397,7 @@ void drawInitDefault() {
 	}
 
 
+	// 안내 문구 출력
 	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 5, INIT_PAGE_HEIGHT / 2);
 	printf("시작 라운드");
 
@@ -415,6 +471,11 @@ void loadMap() {
 
 }
 
+
+/*=======================================*/
+/*====== 연결 리스트와 관련된 함수 ======*/
+
+// x, y좌표를 시작점으로 가지고 방향이 direction인 미사일 추가
 void addMissile(int x, int y, int direction) {
 
 	if (ALL_MISSILE == NULL) {
@@ -457,6 +518,7 @@ void addMissile(int x, int y, int direction) {
 
 }
 
+// 미사일 리스트 초기화
 void removeAllMissile() {
 
 	MISSILE *temp = ALL_MISSILE;
@@ -475,6 +537,56 @@ void removeAllMissile() {
 	}
 
 	ALL_MISSILE = NULL;
+}
+
+// x, y좌표에 방향이 direction인 갈고리 추가
+void addHook(int x, int y, int direction) {
+
+	if (HOOK_LIST == NULL) {
+		HOOK_LIST = (HOOK*)malloc(sizeof(HOOK));
+		HOOK_LIST->x = x;
+		HOOK_LIST->y = y;
+		HOOK_LIST->direction = direction;
+		HOOK_LIST->next = NULL;
+	}
+	else {
+
+		HOOK* temp = HOOK_LIST;
+
+		while (temp->next != NULL) {
+			temp = temp->next;
+		}
+
+		HOOK* hook = (HOOK*)malloc(sizeof(HOOK));
+		hook->x = x;
+		hook->y = y;
+		hook->direction = direction;
+		hook->next = NULL;
+
+		temp->next = hook;
+
+	}
+
+}
+
+// 갈고리 초기화
+void removeAllHook() {
+
+	HOOK * temp = HOOK_LIST;
+	HOOK * temp1;
+
+	if (temp == NULL) {
+		return;
+	}
+
+	while (temp != NULL) {
+		temp1 = temp->next;
+		free(temp);
+		temp = temp1;
+	}
+
+	HOOK_LIST = NULL;
+
 }
 
 // NPC를 원형 연결리스트에 추가
@@ -535,6 +647,7 @@ void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC) {
 
 }
 
+// NPC 리스트 초기화
 void removeAllNPCList() {
 
 	if (NPC_LIST == NULL) {
@@ -563,6 +676,7 @@ void removeAllNPCList() {
 
 }
 
+// 점수 추가
 void addScore(int number) {
 
 	if (SCORE_LIST == NULL) {
@@ -578,7 +692,7 @@ void addScore(int number) {
 
 	while (temp != NULL) {
 
-		if (temp->number == number) {
+		if (temp->number == number) { // 이미 저장된적이 있는 객체일 경우 카운트만 증가 시키고 함수 종료
 			temp->count += 1;
 			return;
 		}
@@ -587,6 +701,7 @@ void addScore(int number) {
 		temp = temp->next;
 	}
 
+	// 저장되어있지 않은 객체일 경우 새롭게 추가
 	temp = (SCORE*)malloc(sizeof(SCORE));
 	temp->count = 1;
 	temp->number = number;
@@ -596,6 +711,7 @@ void addScore(int number) {
 
 }
 
+// 점수 초기화
 void removeAllScore() {
 
 	if (SCORE_LIST == NULL) {
@@ -616,6 +732,10 @@ void removeAllScore() {
 	SCORE_LIST = NULL;
 }
 
+/*=======================================*/
+/*=======================================*/
+
+
 // 도움말 페이지를 표시
 void helpPage() {
 
@@ -635,6 +755,8 @@ void helpPage() {
 	printf("* ← : 왼쪽으로 이동\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* → : 오른쪽으로 이동\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* c : 갈고리 발사\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* Space bar : 미사일 발사\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
@@ -658,7 +780,7 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
 	printf("* ▩ : 함정\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
-	printf("* ＝,∥ : 미사일\n\n\n");
+	printf("* ＝,∥ : 미사일\n\n\n\n\n");
 
 
 	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
@@ -695,9 +817,6 @@ void helpPage() {
 	printf("* NPC 추가\n\n");
 	
 
-	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y+2);
-	printf("ESC, BACKSPACE : 뒤로가기");
-
 	while (1) {
 		int key;
 		if (_kbhit() != 0)
@@ -714,35 +833,42 @@ void helpPage() {
 	}
 }
 
-// 게임 시작
-void gameStart() {
 
-	// 게임시작에 필요한 초기값
+// 게임에 관련된 변수 초기화
+void gamePageInit() {
+
 	MAP map = ALL_MAP[ROUND];
+
+	// 각종 리스트 초기화
 	removeAllMissile();
 	removeAllScore();
+	removeAllHook();
 
-
+	// 화면 크기 조절
 	CURRENT_CONSOLE_WIDTH = (map.x * 2) + (GBOARD_ORIGIN_X) * 4 + SUB_GBOARD_WIDTH * 2;
 	CURRENT_CONSOLE_HEIGHT = INIT_PAGE_HEIGHT;
 	setConsoleSize(CURRENT_CONSOLE_WIDTH, CURRENT_CONSOLE_HEIGHT);
 
+	// 이중 버퍼 사용을 위한 버퍼 생성
 	CreateBuffer();
 
+	// 현재 맵 크기 저장
 	CURRENT_MAP_WIDTH = map.x * 2;
 	CURRENT_MAP_HEIGHT = map.y;
 
+	// 조작에 필요한 변수 초기화
 	mainDiceNumber = 0;
 	controlPoint = 0;
 	itemDiceNumber = 0;
 	diceEnableNumber = map.count;
 	myX = map.startX;
 	myY = map.startY;
+	hookCount = 5;
 	currentTankDirection = DIRECTION_UP;
 
 	enableDice = true;
 	enableMoveNPC = false;
-	isNeedPrintMap = false;
+	enableDirectionKey = true;
 	isGameOver = false;
 	isSuccess = false;
 
@@ -761,16 +887,24 @@ void gameStart() {
 	remainDiceNumberByNPCStop = 0;
 	remainDiceNumberByTankUnbeatable = 0;
 
-	drawGamePage();
+	drawGamePage(); // 화면 그림
 
-	_beginthread(moveNPC, 1, NULL);
-	_beginthread(moveMissile, 2, NULL);
+}
+
+// 게임 시작
+void gameStart() {
+
+	// 게임시작에 필요한 초기값
+	gamePageInit();
+
+	_beginthread(moveNPC, 1, NULL); // NPC 움직임 시작
+	_beginthread(moveMissile, 2, NULL); // 미사일 움직임 시작
 
 	/*=======================*/
 
 	while (diceEnableNumber >= 0) {
 
-		if (isGameOver || isSuccess) {
+		if (isGameOver || isSuccess) { // 게임 종료 조건이 충족되면 함수 종료
 			isGameOver = true;
 			return;
 		}
@@ -782,87 +916,27 @@ void gameStart() {
 			switch (key)
 			{
 			case LEFT:
-				if (!enableDice) {
-					if (moveTank(DIRECTION_LEFT)) {
-						controlPoint -= 1;
-						//drawRemainCount();
-					}
-
-					if (controlPoint <= 0) {
-						if (diceEnableNumber == 0) {
-							isGameOver = true;
-							return;
-						}
-						enableDice = true;
-						enableMoveNPC = false;
-						itemDiceNumber = 0;
-						mainDiceNumber = 0;
-						//drawDice();
-					}
-				}
+				controlDirectionKey(DIRECTION_LEFT);
 				break;
 			case RIGHT:
-				if (!enableDice) {
-					if (moveTank(DIRECTION_RIGHT)) {
-						controlPoint -= 1;
-						//drawRemainCount();
-					}
-
-					if (controlPoint <= 0) {
-						if (diceEnableNumber == 0) {
-							isGameOver = true;
-							return;
-						}
-						enableDice = true;
-						enableMoveNPC = false;
-						itemDiceNumber = 0;
-						mainDiceNumber = 0;
-						//drawDice();
-					}
-				}
+				controlDirectionKey(DIRECTION_RIGHT);
 				break;
 			case UP:
-				if (!enableDice) {
-					if (moveTank(DIRECTION_UP)) {
-						controlPoint -= 1;
-						//drawRemainCount();
-					}
-
-					if (controlPoint <= 0) {
-						if (diceEnableNumber == 0) {
-							isGameOver = true;
-							return;
-						}
-						enableDice = true;
-						enableMoveNPC = false;
-						itemDiceNumber = 0;
-						mainDiceNumber = 0;
-						//drawDice();
-					}
-				}
+				controlDirectionKey(DIRECTION_UP);
 				break;
 			case DOWN:
+				controlDirectionKey(DIRECTION_DOWN);
+				break;
+			case KEY_C:
 				if (!enableDice) {
-					if (moveTank(DIRECTION_DOWN)) {
-						controlPoint -= 1;
-						//drawRemainCount();
-					}
-
-					if (controlPoint <= 0) {
-						if (diceEnableNumber == 0) {
-							isGameOver = true;
-							return;
-						}
-						enableDice = true;
-						enableMoveNPC = false;
-						itemDiceNumber = 0;
-						mainDiceNumber = 0;
-						//drawDice();
+					if (hookCount > 0) {
+						enableDirectionKey = false;
+						_beginthread(useHook, 5, NULL);
 					}
 				}
 				break;
 			case SPACE:
-				if (enableDice) {
+				if (enableDice) { // 다이스를 굴릴 필요가 있다면 다이스를 굴림
 					enableDice = false;
 					enableMoveNPC = true;
 
@@ -873,50 +947,73 @@ void gameStart() {
 					itemDiceNumber = rand() % 6 + 1;
 					//drawDice();
 					//drawRemainCount();
-				}
-				else {
-					addMissile(myX, myY, currentTankDirection);
-
-					controlPoint -= 1;
-					//drawRemainCount();
-
-					if (controlPoint <= 0) {
-						if (diceEnableNumber == 0) {
-							isGameOver = true;
-							return;
-						}
-						enableDice = true;
-						enableMoveNPC = false;
-						itemDiceNumber = 0;
-						mainDiceNumber = 0;
-						//drawDice();
-					}
+				}else { // 아닐경우 미사일 발사
+					controlDirectionKey(10);
 				}
 				break;
 			}
 
 		}
 
-
+		// 20ms 단위로 화면 갱신 및 키 입력받기
 		drawGamePage();
-
 		Sleep(20);
 	}
 
 }
 
+// 게임 중 발생하는 키 입력에 대응
+void controlDirectionKey(int direction) {
+
+	if (direction == 10) { // 스페이스바가 눌린 경우
+
+		if (enableDirectionKey) {
+
+			addMissile(myX, myY, currentTankDirection); // 미사일 발사
+
+			controlPoint -= 1;
+
+
+		}
+
+	}
+	else { // 방향키가 눌린 경우
+
+		if ((!enableDice) && enableDirectionKey) {
+			if (moveTank(direction)) { // 탱크가 움직일 조건을 충족하고 움직였다면
+				controlPoint -= 1;
+			}
+		}
+
+	}
+
+
+	if (controlPoint <= 0) {
+		if (diceEnableNumber == 0) { // 더이상 게임을 진행하지 못할 경우
+			isGameOver = true;
+			return;
+		}
+
+		enableDice = true;
+		enableMoveNPC = false;
+		itemDiceNumber = 0;
+		mainDiceNumber = 0;
+	}
+
+	
+
+}
 
 // 가장 초기 게임플레이 화면을 그림
 void drawGamePage() {
 
-	BufferClear();
+	BufferClear(); // 화면 버퍼 초기화
 
 	MAP map = ALL_MAP[ROUND];
 
+	// 현재 라운드 정보 출력
 	char string[12];
-
 	sprintf(string, "Round #%d", ROUND + 1);
-
 	BufferWrite(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y - 1, string);
 
 
@@ -925,7 +1022,7 @@ void drawGamePage() {
 	printMap();
 	printNPC();
 	printMissile();
-	printTank();
+	printHook();
 
 	// 중앙선
 	for (int y = 0; y < CURRENT_CONSOLE_HEIGHT; y++) {
@@ -933,20 +1030,27 @@ void drawGamePage() {
 	}
 
 	drawDice();
-
 	drawRemainCount();
 
 	printNotiMessage();
-
 	printItemNotiMessage();
+	printRemainHook();
 
-	Flipping();
+
+	printTank();
+
+	Flipping(); // 그려진 화면으로 전환
 
 }
 
 
+/*=======================================*/
+/*======= 맵 주변 안내 문구 출력부 ======*/
+
+// 라이프를 출력함
 void printLife() {
 
+	// 맵 상단 우측 모서리에 라이프 출력
 	for (int x = 1; x <= 5; x++) {
 		setBufferFontColor(FONT_LIGHT_RED_COLOR);
 		if (x <= LIFE) {
@@ -960,6 +1064,19 @@ void printLife() {
 
 }
 
+// 남은 갈고리 횟수를 출력함
+void printRemainHook() {
+
+	// 맵 우측 하단에 남은 갈고리 개수 출력
+	setBufferFontColor(FONT_GREED_COLOR);
+	for (int i = 1; i <= hookCount; i++) {
+		BufferWrite(GBOARD_ORIGIN_X + CURRENT_MAP_WIDTH - (i * 2), GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT, "§");
+	}
+	setBufferFontColor(FONT_DEFAULT_COLOR);
+
+}
+
+// 안내 메시지를 출력함
 void printNotiMessage() {
 
 	/*if (diceEnableNumber <= 5) {
@@ -977,557 +1094,7 @@ void printNotiMessage() {
 
 }
 
-// 주사위 영역을 그림
-void drawDice() {
-
-	char string[40];
-
-	sprintf(string, "주사위를 굴릴 수 있는 남은 횟수 : %2d", diceEnableNumber);
-
-	if (diceEnableNumber <= 5) {
-		setBufferFontColor(FONT_LIGHT_RED_COLOR);
-	}
-	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y, string);
-	setBufferFontColor(FONT_DEFAULT_COLOR);
-
-	// 다이스 틀
-	for (int y = 0; y < DICE_HEIGHT + 3; y++) {
-		if (y == 0) {
-			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
-				if (x == 0) {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┌");
-				}
-				else if (x == SUB_GBOARD_WIDTH - 1) {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┐");
-				}
-				else {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "─");
-				}
-			}
-		}
-		else if (y == DICE_HEIGHT + 3 - 1) {
-			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
-				if (x == 0) {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "└");
-				}
-				else if (x == SUB_GBOARD_WIDTH - 1) {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┘");
-				}
-				else {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "─");
-				}
-			}
-		}
-		else {
-			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
-				if (x == 0 || x == SUB_GBOARD_WIDTH - 1) {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "│");
-				}
-				else {
-					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "　");
-				}
-			}
-		}
-
-	}
-
-
-	for (int y = 0; y < DICE_HEIGHT; y++) {
-
-		for (int x = 0; x < DICE_WIDTH; x++) {
-			if (dice[mainDiceNumber][y][x] == 0) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "　");
-			}
-			else if (dice[mainDiceNumber][y][x] == 1) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┌");
-			}
-			else if (dice[mainDiceNumber][y][x] == 2) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┐");
-			}
-			else if (dice[mainDiceNumber][y][x] == 3) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "└");
-			}
-			else if (dice[mainDiceNumber][y][x] == 4) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┘");
-			}
-			else if (dice[mainDiceNumber][y][x] == 5) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "─");
-			}
-			else if (dice[mainDiceNumber][y][x] == 6) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "│");
-			}
-			else if (dice[mainDiceNumber][y][x] == 7) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "●");
-			}
-		}
-
-	}
-
-	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 10, GBOARD_ORIGIN_Y + 3 + DICE_HEIGHT, "조작 횟수");
-
-	for (int y = 0; y < DICE_HEIGHT; y++) {
-
-		for (int x = 0; x < DICE_WIDTH; x++) {
-			if (dice[itemDiceNumber][y][x] == 0) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "　");
-			}
-			else if (dice[itemDiceNumber][y][x] == 1) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┌");
-			}
-			else if (dice[itemDiceNumber][y][x] == 2) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┐");
-			}
-			else if (dice[itemDiceNumber][y][x] == 3) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "└");
-			}
-			else if (dice[itemDiceNumber][y][x] == 4) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┘");
-			}
-			else if (dice[itemDiceNumber][y][x] == 5) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "─");
-			}
-			else if (dice[itemDiceNumber][y][x] == 6) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "│");
-			}
-			else if (dice[itemDiceNumber][y][x] == 7) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "●");
-			}
-		}
-	}
-	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 11 + DICE_WIDTH * 2, GBOARD_ORIGIN_Y + 3 + DICE_HEIGHT, "아이템 번호");
-
-
-	if (controlPoint == 0) {
-		setBufferFontColor(FONT_LIGHT_GREEN_COLOR);
-		BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y + 2 + DICE_HEIGHT / 2 + 1, "Spacebar를 눌러 주사위를 굴려주세요.");
-		setBufferFontColor(FONT_DEFAULT_COLOR);
-	}
-
-}
-
-// 남은 조작횟수 영역을 그림
-void drawRemainCount() {
-
-
-	char string[20];
-
-	sprintf(string, "남은 조작 횟수 %d번", controlPoint);
-
-	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 10, GBOARD_ORIGIN_Y + 4 + DICE_HEIGHT + 2, string);
-
-
-	for (int j = 0; j < BIG_NUMBER_HEIGHT; j++) {
-		for (int i = 0; i < BIG_NUMBER_WIDHT; i++) {
-			if (bigNumber[controlPoint][j][i] == 0) {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - BIG_NUMBER_WIDHT + i * 2, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + j, "　");
-			}
-			else {
-				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - BIG_NUMBER_WIDHT + i * 2, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + j, "■");
-			}
-		}
-	}
-
-}
-
-
-// 탱크와 충돌을 체크(충돌일시 true반환)
-boolean detectConflictWithTank(int checkX, int checkY) {
-
-	if (checkX == myX && checkY == myY) {
-		return true;
-	}
-
-	return false;
-}
-
-// NPC와 충돌을 체크(충돌일시 true반환)
-boolean detectConflictWithNPC(int checkX, int checkY) {
-
-	NPC_HEAD npc_list = NPC_LIST[ROUND];
-
-	if (npc_list.num == 0) {
-		return false;
-	}
-
-	NPC* npc = npc_list.head;
-
-	do {
-
-		int x = npc->x;
-		int y = npc->y;
-
-		if (checkX == x && checkY == y)
-			return true;
-
-		npc = npc->rightLink;
-	} while (npc != npc_list.head);
-
-	return false;
-}
-
-// 벽과의 충돌을 체크(충돌일시 true반환)
-boolean detectConflictWithWall(int checkX, int checkY) {
-
-	MAP map = ALL_MAP[ROUND];
-
-	int number = map.map[checkY][checkX];
-
-	if (number <= 3 && number > 0) {
-		return true;
-	}
-	else if (number == 9 || number == 8) {
-		return true;
-	}
-
-	return false;
-
-}
-
-// 아이템 블록과 충돌을 체크(충돌일시 true반환)
-boolean detectConflictWithItem(int checkX, int checkY) {
-
-	MAP map = ALL_MAP[ROUND];
-
-	int number = map.map[checkY][checkX];
-
-	if (number == 4) {
-		return true;
-	}
-
-	return false;
-}
-
-void removeNPC(int x, int y, boolean isDelete) {
-	NPC_HEAD npc_list = NPC_LIST[ROUND];
-
-	NPC* temp = npc_list.head;
-
-	if (npc_list.num == 0) {
-		return;
-	}
-
-	do {
-
-		if (temp->x == x && temp->y == y) {
-
-			addScore(temp->number);
-
-
-			temp->number -= 1;
-			if (isDelete) {
-				temp->number -= 1;
-			}
-
-			if (temp->number < 5) {
-
-				NPC_LIST[ROUND].num -= 1;
-
-				NPC* right = temp->rightLink;
-				NPC* left = temp->leftLink;
-
-				right->leftLink = left;
-				left->rightLink = right;
-
-				if (temp == npc_list.head) {
-					NPC_LIST[ROUND].head = right;
-					npc_list.head = right;
-				}
-				else if (temp == npc_list.tail) {
-					NPC_LIST[ROUND].tail = left;
-					npc_list.tail = left;
-				}
-
-				temp->rightLink = NULL;
-				temp->leftLink = NULL;
-				free(temp);
-
-				temp = right;
-
-				continue;
-
-			}
-
-		}
-
-		temp = temp->rightLink;
-
-
-	} while (temp != npc_list.head);
-
-}
-
-void removeWall(int x, int y) {
-
-	int temp = ALL_MAP[ROUND].map[y][x];
-
-	switch (temp) {
-	case 1:
-		ALL_MAP[ROUND].map[y][x] -= 1;
-		addScore(temp);
-		break;
-	case 2:
-	case 3:
-		ALL_MAP[ROUND].map[y][x] -= 1;
-		addScore(temp);
-		break;
-	}
-
-}
-
-// 탱크를 이동시키는 함수(이동가능하면 ture, 불가능하면 false 반환)
-boolean moveTank(int direction) {
-
-	boolean check = false;
-
-	if (direction == currentTankDirection) {
-		int tempX = myX;
-		int tempY = myY;
-
-		MAP map = ALL_MAP[ROUND];
-
-		switch (direction) {
-		case DIRECTION_LEFT:
-			tempX -= 1;
-			break;
-		case DIRECTION_RIGHT:
-			tempX += 1;
-			break;
-		case DIRECTION_UP:
-			tempY -= 1;
-			break;
-		case DIRECTION_DOWN:
-			tempY += 1;
-			break;
-		}
-
-		if (detectConflictWithNPC(tempX, tempY)) {
-			if (isTankUnbeatable) {
-				return false;
-			}
-			else {
-				isGameOver = true;
-				return check;
-			}
-		}
-
-		switch (map.map[tempY][tempX]) {
-		case 0:
-		case 4:
-			//BufferWrite(GBOARD_ORIGIN_X + (myX * 2), GBOARD_ORIGIN_Y + myY, "　");
-			myX = tempX;
-			myY = tempY;
-			check = true;
-			break;
-		case 8:
-			isSuccess = true;
-			break;
-		default:
-			break;
-		}
-
-
-		if (detectConflictWithItem(myX, myY)) {
-			ALL_MAP[ROUND].map[myY][myX] = 0;
-			useItem();
-		}
-
-	}
-	else {
-		currentTankDirection = direction;
-	}
-
-
-
-	return check;
-
-}
-
-// NPC를 움직임(탱크와 충돌할 경우 true 리턴)
-void moveNPC(void * param) {
-
-	OutputDebugString(L"Start Move NPC\n");
-
-	while (!isGameOver) {
-
-		if (!isNPCStop) {
-
-			NPC_HEAD npc_list = NPC_LIST[ROUND];
-
-			if (npc_list.num == 0) {
-				continue;
-			}
-
-			NPC* npc = npc_list.head;
-			MAP map = ALL_MAP[ROUND];
-
-			do {
-
-				while (1) {
-
-					int x = npc->x;
-					int y = npc->y;
-					int direction = npc->direction;
-					int remainMove = npc->remainMove;
-					int* check = npc->check;
-
-					if (remainMove == 0) {
-
-						if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) {
-							npc->check[1] = 0;
-							npc->check[2] = 0;
-							npc->check[3] = 0;
-							npc->check[4] = 0;
-							break;
-						}
-						while (1) {
-							direction = rand() % 4 + 1;
-							if (check[direction] != 1) {
-								break;
-							}
-						}
-
-						npc->direction = direction;
-						npc->check[direction] = 1;
-
-						remainMove = rand() % 5 + 1;
-						npc->remainMove = remainMove;
-					}
-
-					switch (direction) {
-					case DIRECTION_LEFT:
-						x -= 1;
-						break;
-					case DIRECTION_RIGHT:
-						x += 1;
-						break;
-					case DIRECTION_UP:
-						y -= 1;
-						break;
-					case DIRECTION_DOWN:
-						y += 1;
-						break;
-					}
-
-					if (detectConflictWithTank(x, y)) {
-						if (isTankUnbeatable) {
-							npc->remainMove = 0;
-							continue;
-						}
-						else {
-							isGameOver = true;
-							return;
-						}
-
-					}
-
-					if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) {
-						npc->remainMove = 0;
-						continue;
-					}
-
-
-					npc->x = x;
-					npc->y = y;
-					npc->remainMove -= 1;
-					npc->check[1] = 0;
-					npc->check[2] = 0;
-					npc->check[3] = 0;
-					npc->check[4] = 0;
-
-					break;
-
-				}
-
-
-
-
-				npc = npc->rightLink;
-
-			} while (npc != npc_list.head);
-
-		}
-
-		Sleep(NPC_SPEED);
-
-	}
-
-
-	OutputDebugString(L"End Move NPC\n");
-
-}
-
-void moveMissile(void * param) {
-
-	OutputDebugString(L"Start Move Missile\n");
-
-	while (!isGameOver) {
-
-		MISSILE* m = ALL_MISSILE;
-
-		MAP map = ALL_MAP[ROUND];
-
-		while (m != NULL) {
-
-			if (m->isEnable) {
-
-				int x = m->x;
-				int y = m->y;
-				int direction = m->direction;
-
-				switch (direction) {
-				case DIRECTION_LEFT:
-					x -= 1;
-					break;
-				case DIRECTION_RIGHT:
-					x += 1;
-					break;
-				case DIRECTION_UP:
-					y -= 1;
-					break;
-				case DIRECTION_DOWN:
-					y += 1;
-					break;
-				}
-
-				if (detectConflictWithNPC(m->x, m->y)) {
-					m->isEnable = false;
-					removeNPC(m->x, m->y, false);
-				}
-				else if (detectConflictWithNPC(x, y)) {
-					m->isEnable = false;
-					removeNPC(x, y, false);
-				}
-				else if (detectConflictWithWall(x, y)) {
-					m->isEnable = false;
-					removeWall(x, y);
-				}
-				else {
-					if (map.map[y][x] == 0 || map.map[y][x] == 4) {
-						m->x = x;
-						m->y = y;
-					}
-					else {
-						m->isEnable = false;
-					}
-				}
-
-
-
-			}
-
-
-			m = m->next;
-		}
-
-		Sleep(200);
-
-	}
-
-
-	OutputDebugString(L"End Move Missile\n");
-
-}
-
+// 아이템관련 안내 메시지를 출력함
 void printItemNotiMessage() {
 
 	int count = 0;
@@ -1574,342 +1141,205 @@ void printItemNotiMessage() {
 
 }
 
-void useItem() {
-
-	srand((unsigned int)time(NULL));
-	int item = rand() % 5 + 6 - 5 * (itemDiceNumber % 2);
+/*=======================================*/
+/*=======================================*/
 
 
-	switch (item) {
-	case 1: // NPC 스피드 업
-		_beginthread(NPCSpeedUp, 1, NULL);
-		break;
-	case 2: // 조작횟수 반감
-		controlPoint = (controlPoint + 1) / 2;
-		break;
-	case 3: // 시야 가리기
-		_beginthread(restrictSight, 2, NULL);
-		Sleep(10);
-		isNeedPrintMap = true;
-		break;
-	case 4: // 벽 단계 증가
-		mapDestroy(true);
-		break;
-	case 5: // NPC 추가
-		addNewNPC();
-		break;
-	case 6: // 조작횟수 증가
-		controlPoint += 2;
-		break;
-	case 7: // 벽 단계 감소
-		mapDestroy(false);
-		break;
-	case 8: // NPC 멈추기
-		_beginthread(NPCStop, 3, NULL);
-		break;
-	case 9: // 플레이어 무적
-		_beginthread(tankUnbeatable, 4, NULL);
-		Sleep(10);
-		printTank();
-		break;
-	case 10: // 원하는 NPC 삭제
-		removeOneNPC();
-		break;
+/*=====================================*/
+/*====== 조작과 관련된 UI 출력부 ======*/
+
+// 주사위 영역을 그림
+void drawDice() {
+
+	// 남은 주사위 횟수 출력
+	char string[40];
+	sprintf(string, "주사위를 굴릴 수 있는 남은 횟수 : %2d", diceEnableNumber);
+	if (diceEnableNumber <= 5) {
+		setBufferFontColor(FONT_LIGHT_RED_COLOR);
 	}
-
-}
-
-void removeOneNPC() {
-
-	BufferClear();
-
-	boolean sightTemp = enableSight;
-	enableSight = true;
-
-	boolean npcStopTemp = isNPCStop;
-	isNPCStop = true;
-
-	NPC_HEAD npc_list = NPC_LIST[ROUND];
-	MAP map = ALL_MAP[ROUND];
-
-	if (npc_list.num == 0) {
-		isNPCStop = npcStopTemp;
-		enableSight = sightTemp;
-		return;
-	}
-
-
-	NPC* npc = npc_list.head;
-
-	int x = npc->x;
-	int y = npc->y;
-	int number = npc->number;
-
-	/*======================================*/
-
-	printMap();
-	printNPC();
-	printTank();
-
-	setBufferFontColor(FONT_LIGHT_RED_COLOR);
-	if (number == 5) {
-		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
-	}
-	else if (number == 6) {
-		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
-	}
+	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y, string);
 	setBufferFontColor(FONT_DEFAULT_COLOR);
 
-	Flipping();
-
-	/*======================================*/
-
-	BufferClear();
-
-	printMap();
-	printNPC();
-	printTank();
-
-	setBufferFontColor(FONT_LIGHT_RED_COLOR);
-	if (number == 5) {
-		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
-	}
-	else if (number == 6) {
-		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
-	}
-	setBufferFontColor(FONT_DEFAULT_COLOR);
-
-	Flipping();
-
-	/*======================================*/
-
-	boolean isSelected = false;
-
-
-	while (!isSelected) {
-
-		int key;
-		if (_kbhit() != 0)
-		{
-			key = _getch();
-			switch (key)
-			{
-			case LEFT:
-				printNPC();
-				npc = npc->leftLink;
-				x = npc->x;
-				y = npc->y;
-				number = npc->number;
-
-				setBufferFontColor(FONT_LIGHT_RED_COLOR);
-				if (number == 5) {
-					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+	// 다이스 틀 출력
+	for (int y = 0; y < DICE_HEIGHT + 3; y++) {
+		if (y == 0) {
+			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
+				if (x == 0) {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┌");
 				}
-				else if (number == 6) {
-					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+				else if (x == SUB_GBOARD_WIDTH - 1) {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┐");
 				}
-				setBufferFontColor(FONT_DEFAULT_COLOR);
-
-				Flipping();
-
-				break;
-			case RIGHT:
-				printNPC();
-				npc = npc->rightLink;
-				x = npc->x;
-				y = npc->y;
-				number = npc->number;
-
-				setBufferFontColor(FONT_LIGHT_RED_COLOR);
-				if (number == 5) {
-					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
-				}
-				else if (number == 6) {
-					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
-				}
-				setBufferFontColor(FONT_DEFAULT_COLOR);
-
-				Flipping();
-
-				break;
-			case SPACE:
-				removeNPC(x, y, true);
-				isSelected = true;
-				break;
-			}
-
-		}
-
-
-		Sleep(20);
-	}
-
-	isNPCStop = npcStopTemp;
-	enableSight = sightTemp;
-}
-
-void NPCSpeedUp(void * param) {
-
-	OutputDebugString(L"NPCSpeedUp : IN\n");
-
-	if (!isAlreadyNPCSpeed) {
-
-		isAlreadyNPCSpeed = true;
-		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
-
-		NPC_SPEED = NPC_SPEED / 2;
-		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
-			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
-		}
-
-		while (remainDiceNumberByNPCSpeed < diceEnableNumber && (!isGameOver)) {
-			Sleep(100);
-		}
-
-		NPC_SPEED = DEFAULT_NPC_SPEED;
-		isAlreadyNPCSpeed = false;
-
-	}
-	else {
-		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
-		NPC_SPEED = NPC_SPEED / 2;
-		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
-			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
-		}
-	}
-
-	OutputDebugString(L"NPCSpeedUp : OUT\n");
-
-}
-
-void NPCStop(void * param) {
-
-	OutputDebugString(L"NPCStop : IN\n");
-
-	if (!isAlreadyNPCStop) {
-
-		isAlreadyNPCStop = true;
-		remainDiceNumberByNPCStop = diceEnableNumber - 3;
-
-		isNPCStop = true;
-
-		while (remainDiceNumberByNPCStop < diceEnableNumber && (!isGameOver)) {
-			Sleep(100);
-		}
-
-		isNPCStop = false;
-		isAlreadyNPCStop = false;
-
-	}
-	else {
-		remainDiceNumberByNPCStop = diceEnableNumber - 3;
-	}
-
-	OutputDebugString(L"NPCStop : OUT\n");
-}
-
-void tankUnbeatable(void * param) {
-
-	OutputDebugString(L"tankUnbeatable : IN\n");
-
-	if (!isAlreadyTankUnbeatable) {
-
-		isAlreadyTankUnbeatable = true;
-		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
-
-		isTankUnbeatable = true;
-
-		while (remainDiceNumberByTankUnbeatable < diceEnableNumber && (!isGameOver)) {
-			Sleep(100);
-		}
-
-		isTankUnbeatable = false;
-		isAlreadyTankUnbeatable = false;
-
-	}
-	else {
-		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
-	}
-	OutputDebugString(L"tankUnbeatable : OUT\n");
-
-}
-
-void restrictSight(void * param) {
-
-	OutputDebugString(L"restrictSight : IN\n");
-	if (!isAlreadySight) {
-
-		isAlreadySight = true;
-		remainDiceNumberBySight = diceEnableNumber - 4;
-
-		enableSight = false;
-
-		while (remainDiceNumberBySight < diceEnableNumber && (!isGameOver)) {
-			Sleep(100);
-		}
-
-		enableSight = true;
-		isNeedPrintMap = true;
-		isAlreadySight = false;
-
-	}
-	else {
-		remainDiceNumberBySight = diceEnableNumber - 4;
-	}
-
-	OutputDebugString(L"restrictSight : OUT\n");
-
-
-}
-
-void mapDestroy(boolean isUp) {
-
-	for (int y = 0; y < ALL_MAP[ROUND].y; y++) {
-		for (int x = 0; x < ALL_MAP[ROUND].x; x++) {
-
-			int number = ALL_MAP[ROUND].map[y][x];
-			if (isUp) {
-				if (1 <= number && number <= 2) {
-					ALL_MAP[ROUND].map[y][x] += 1;
-				}
-			}
-			else {
-				if (1 <= number && number <= 3) {
-					ALL_MAP[ROUND].map[y][x] -= 1;
-					if (ALL_MAP[ROUND].map[y][x] == 0) {
-						BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "　");
-					}
+				else {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "─");
 				}
 			}
 		}
-	}
-
-}
-
-void addNewNPC() {
-
-	int x = rand() % ALL_MAP[ROUND].x;
-	x = x - (x % 2);
-	int y = rand() % ALL_MAP[ROUND].y;
-	y = y - (y % 2);
-	int number = 5;
-
-	while (1) {
-		if ((detectConflictWithTank(x, y) == false) && (detectConflictWithNPC(x, y) == false) && (detectConflictWithItem(x, y) == false) && (detectConflictWithWall(x, y) == false)) {
-			break;
+		else if (y == DICE_HEIGHT + 3 - 1) {
+			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
+				if (x == 0) {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "└");
+				}
+				else if (x == SUB_GBOARD_WIDTH - 1) {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "┘");
+				}
+				else {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "─");
+				}
+			}
 		}
 		else {
-			x = rand() % ALL_MAP[ROUND].x;
-			x = x - (x % 2);
-			y = rand() % ALL_MAP[ROUND].y;
-			y = y - (y % 2);
+			for (int x = 0; x < SUB_GBOARD_WIDTH; x++) {
+				if (x == 0 || x == SUB_GBOARD_WIDTH - 1) {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "│");
+				}
+				else {
+					BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 2 + y, "　");
+				}
+			}
 		}
+
 	}
 
-	addNPC(NPC_LIST[ROUND], x, y, number, 50);
+	// 조작 횟수와 관련된 주사위 출력
+	for (int y = 0; y < DICE_HEIGHT; y++) {
+
+		for (int x = 0; x < DICE_WIDTH; x++) {
+			if (dice[mainDiceNumber][y][x] == 0) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "　");
+			}
+			else if (dice[mainDiceNumber][y][x] == 1) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┌");
+			}
+			else if (dice[mainDiceNumber][y][x] == 2) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┐");
+			}
+			else if (dice[mainDiceNumber][y][x] == 3) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "└");
+			}
+			else if (dice[mainDiceNumber][y][x] == 4) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┘");
+			}
+			else if (dice[mainDiceNumber][y][x] == 5) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "─");
+			}
+			else if (dice[mainDiceNumber][y][x] == 6) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "│");
+			}
+			else if (dice[mainDiceNumber][y][x] == 7) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 6 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "●");
+			}
+		}
+
+	}
+	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 10, GBOARD_ORIGIN_Y + 3 + DICE_HEIGHT, "조작 횟수");
+
+
+	// 아이템과 관련된 주사위 출력
+	for (int y = 0; y < DICE_HEIGHT; y++) {
+
+		for (int x = 0; x < DICE_WIDTH; x++) {
+			if (dice[itemDiceNumber][y][x] == 0) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "　");
+			}
+			else if (dice[itemDiceNumber][y][x] == 1) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┌");
+			}
+			else if (dice[itemDiceNumber][y][x] == 2) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┐");
+			}
+			else if (dice[itemDiceNumber][y][x] == 3) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "└");
+			}
+			else if (dice[itemDiceNumber][y][x] == 4) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "┘");
+			}
+			else if (dice[itemDiceNumber][y][x] == 5) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "─");
+			}
+			else if (dice[itemDiceNumber][y][x] == 6) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "│");
+			}
+			else if (dice[itemDiceNumber][y][x] == 7) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 8 + DICE_WIDTH * 2 + x * 2, GBOARD_ORIGIN_Y + 3 + y, "●");
+			}
+		}
+	}
+	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH * 2 + 11 + DICE_WIDTH * 2, GBOARD_ORIGIN_Y + 3 + DICE_HEIGHT, "아이템 번호");
+
+
+	// 주사위를 굴리지 못한다면 안내문구 출력
+	if (controlPoint == 0) {
+		setBufferFontColor(FONT_LIGHT_GREEN_COLOR);
+		BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 18, GBOARD_ORIGIN_Y + 2 + DICE_HEIGHT / 2 + 1, "Spacebar를 눌러 주사위를 굴려주세요.");
+		setBufferFontColor(FONT_DEFAULT_COLOR);
+	}
 
 }
 
+// 남은 조작횟수 영역을 그림
+void drawRemainCount() {
+
+
+	char string[20];
+	sprintf(string, "남은 조작 횟수 %d번", controlPoint);
+	BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - 10, GBOARD_ORIGIN_Y + 4 + DICE_HEIGHT + 2, string);
+
+	// 7세그먼트로 출력
+	for (int j = 0; j < BIG_NUMBER_HEIGHT; j++) {
+		for (int i = 0; i < BIG_NUMBER_WIDHT; i++) {
+			if (bigNumber[controlPoint][j][i] == 0) {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - BIG_NUMBER_WIDHT + i * 2, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + j, "　");
+			}
+			else {
+				BufferWrite(CURRENT_CONSOLE_WIDTH - GBOARD_ORIGIN_X - SUB_GBOARD_WIDTH - BIG_NUMBER_WIDHT + i * 2, GBOARD_ORIGIN_Y + 6 + DICE_HEIGHT + 2 + j, "■");
+			}
+		}
+	}
+
+}
+
+/*=====================================*/
+/*=====================================*/
+
+
+/*=====================================*/
+/*====== 맵과 연관된 객체 출력부 ======*/
+
+// 갈고리 출력
+void printHook() {
+
+	if (isHook) {
+
+		HOOK* temp = HOOK_LIST;
+
+		while (temp != NULL) {
+
+			int x = temp->x;
+			int y = temp->y;
+			int direction = temp->direction;
+
+			switch (direction) {
+			case DIRECTION_LEFT:
+			case DIRECTION_RIGHT:
+				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "─");
+				break;
+			case DIRECTION_DOWN:
+			case DIRECTION_UP:
+				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "│");
+				break;
+			}
+
+			temp = temp->next;
+
+
+		}
+
+	}
+
+}
+
+// 미사일 출력
 void printMissile() {
 
 	MISSILE* m = ALL_MISSILE;
@@ -1920,7 +1350,7 @@ void printMissile() {
 			int y = m->y;
 			int direction = m->direction;
 
-			if (!enableSight) {
+			if (!enableSight) { // 시야를 가릴 필요가 있을 경우
 				if ((myX - restrictSightRange > x && x > myX + restrictSightRange) && (myY - restrictSightRange < y && y>myY + restrictSightRange)) {
 					m = m->next;
 					continue;
@@ -1992,7 +1422,7 @@ void printNPC() {
 		int number = npc->number;
 		int newNPC = npc->newNPC;
 
-		if (!enableSight) {
+		if (!enableSight) { // 시야를 가릴 필요가 있을 경우
 			if ((myX - restrictSightRange <= x && x <= myX + restrictSightRange) && (myY - restrictSightRange <= y && y <= myY + restrictSightRange)) {
 
 			}
@@ -2004,14 +1434,14 @@ void printNPC() {
 		}
 
 		if (number == 5) {
-			if (newNPC > 0) {
+			if (newNPC > 0) { // 새롭게 추가된 NPC일 경우
 				npc->newNPC -= 1;
 				setBufferFontColor(FONT_GREED_COLOR);
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 			else {
-				if (isNPCStop) {setBufferFontColor(3);}
+				if (isNPCStop) { setBufferFontColor(3); }
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
@@ -2092,38 +1522,882 @@ void printMap() {
 
 }
 
-void reduceControlPoint() {
-	mainDiceNumber -= 1;
-	drawRemainCount();
+/*=====================================*/
+/*=====================================*/
 
-	if (mainDiceNumber <= 0) {
-		if (diceEnableNumber == 0) {
-			return;
-		}
-		enableDice = true;
-		enableMoveNPC = false;
-		itemDiceNumber = 0;
-		drawDice();
+
+/*=======================*/
+/*====== 충돌 체크 ======*/
+
+// 탱크와 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithTank(int checkX, int checkY) {
+
+	if (checkX == myX && checkY == myY) {
+		return true;
 	}
+
+	return false;
 }
-void reduceControlPoint(int direction) {
 
-	if (moveTank(direction)) {
-		mainDiceNumber -= 1;
-		drawRemainCount();
+// NPC와 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithNPC(int checkX, int checkY) {
+
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
+
+	if (npc_list.num == 0) {
+		return false;
 	}
 
-	if (mainDiceNumber <= 0) {
-		if (diceEnableNumber == 0) {
-			return;
+	NPC* npc = npc_list.head;
+
+	do {
+
+		int x = npc->x;
+		int y = npc->y;
+
+		if (checkX == x && checkY == y)
+			return true;
+
+		npc = npc->rightLink;
+	} while (npc != npc_list.head);
+
+	return false;
+}
+
+// 벽과의 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithWall(int checkX, int checkY) {
+
+	MAP map = ALL_MAP[ROUND];
+
+	int number = map.map[checkY][checkX];
+
+	if (number <= 3 && number > 0) {
+		return true;
+	}
+	else if (number == 9 || number == 8) {
+		return true;
+	}
+
+	return false;
+
+}
+
+// 아이템 블록과 충돌을 체크(충돌일시 true반환)
+boolean detectConflictWithItem(int checkX, int checkY) {
+
+	MAP map = ALL_MAP[ROUND];
+
+	int number = map.map[checkY][checkX];
+
+	if (number == 4) {
+		return true;
+	}
+
+	return false;
+}
+
+/*=======================*/
+/*=======================*/
+
+
+/*==================================*/
+/*====== 미사일에 관련된 액션 ======*/
+
+// x, y좌표의 NPC를 지움
+void removeNPC(int x, int y, boolean isDelete) {
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
+
+	NPC* temp = npc_list.head;
+
+	if (npc_list.num == 0) {
+		return;
+	}
+
+	do {
+
+		if (temp->x == x && temp->y == y) {
+
+			addScore(temp->number); // 파괴한 NPC 점수 계산에 추가
+
+			temp->number -= 1;
+			if (isDelete) { // 완전 삭제가 필요한 경우
+				temp->number -= 1;
+			}
+
+			if (temp->number < 5) { // 리스트에서 영구적으로 삭제함
+
+				NPC_LIST[ROUND].num -= 1;
+
+				NPC* right = temp->rightLink;
+				NPC* left = temp->leftLink;
+
+				right->leftLink = left;
+				left->rightLink = right;
+
+				if (temp == npc_list.head) {
+					NPC_LIST[ROUND].head = right;
+					npc_list.head = right;
+				}
+				else if (temp == npc_list.tail) {
+					NPC_LIST[ROUND].tail = left;
+					npc_list.tail = left;
+				}
+
+				temp->rightLink = NULL;
+				temp->leftLink = NULL;
+				free(temp);
+
+				temp = right;
+
+				continue;
+
+			}
+
 		}
-		enableDice = true;
-		enableMoveNPC = false;
-		itemDiceNumber = 0;
-		drawDice();
+
+		temp = temp->rightLink;
+
+
+	} while (temp != npc_list.head);
+
+}
+
+// x, y좌표의 벽을 지움
+void removeWall(int x, int y) {
+
+	int temp = ALL_MAP[ROUND].map[y][x];
+
+	switch (temp) {
+	case 1:
+		ALL_MAP[ROUND].map[y][x] -= 1;
+		addScore(temp);
+		break;
+	case 2:
+	case 3:
+		ALL_MAP[ROUND].map[y][x] -= 1;
+		addScore(temp);
+		break;
 	}
 
 }
+
+/*==================================*/
+/*==================================*/
+
+
+/*=======================================*/
+/*====== 객체의 이동과 관련된 함수 ======*/
+
+// 탱크를 이동시키는 함수(이동가능하면 ture, 불가능하면 false 반환)
+boolean moveTank(int direction) {
+
+	boolean check = false;
+
+	if (direction == currentTankDirection) {
+		int tempX = myX;
+		int tempY = myY;
+
+		MAP map = ALL_MAP[ROUND];
+
+		switch (direction) {
+		case DIRECTION_LEFT:
+			tempX -= 1;
+			break;
+		case DIRECTION_RIGHT:
+			tempX += 1;
+			break;
+		case DIRECTION_UP:
+			tempY -= 1;
+			break;
+		case DIRECTION_DOWN:
+			tempY += 1;
+			break;
+		}
+
+		if (detectConflictWithNPC(tempX, tempY)) { // NPC와 충돌 체크
+			if (isTankUnbeatable) { // 탱크가 무적일 경우
+				return false;
+			}
+			else {
+				isGameOver = true; // 게임을 종료 시킴
+				return check;
+			}
+		}
+
+		switch (map.map[tempY][tempX]) {
+		case 0: // 탱크 이동시키기
+		case 4:
+			myX = tempX;
+			myY = tempY;
+			check = true;
+			break;
+		case 8:
+			isSuccess = true;
+			break;
+		default:
+			break;
+		}
+
+
+		// 아이템을 먹은 경우
+		if (detectConflictWithItem(myX, myY)) {
+			ALL_MAP[ROUND].map[myY][myX] = 0;
+			useItem();
+		}
+
+	}
+	else {
+		currentTankDirection = direction;
+	}
+
+
+
+	return check;
+
+}
+
+// NPC를 움직임 (스레드 사용)
+void moveNPC(void * param) {
+
+	OutputDebugString(L"Start Move NPC\n");
+
+	while (!isGameOver) { // 게임이 종료될때까지 반복
+
+		if (!isNPCStop) { // NPC가 멈춰야할 경우가 아니라면
+
+			NPC_HEAD npc_list = NPC_LIST[ROUND];
+
+			if (npc_list.num == 0) { // NPC가 없으면 종료
+				continue;
+			}
+
+			NPC* npc = npc_list.head;
+			MAP map = ALL_MAP[ROUND];
+
+			do {
+
+				while (1) { // 이동가능한 방향을 찾기 위해
+
+					int x = npc->x;
+					int y = npc->y;
+					int direction = npc->direction;
+					int remainMove = npc->remainMove;
+					int* check = npc->check;
+
+					if (remainMove == 0) { // NPC의 남은 이동횟수를 모두 소진한 경우
+
+						if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) { // 모든 방향으로 이동이 불가능할때
+							npc->check[1] = 0;
+							npc->check[2] = 0;
+							npc->check[3] = 0;
+							npc->check[4] = 0;
+							break;
+						}
+
+						while (1) { // 아직 체크하지 않은 방향을 얻어냄
+							direction = rand() % 4 + 1;
+							if (check[direction] != 1) {
+								break;
+							}
+						}
+
+						npc->direction = direction;
+						npc->check[direction] = 1;
+
+						remainMove = rand() % 5 + 1;
+						npc->remainMove = remainMove;
+					}
+
+					switch (direction) {
+					case DIRECTION_LEFT:
+						x -= 1;
+						break;
+					case DIRECTION_RIGHT:
+						x += 1;
+						break;
+					case DIRECTION_UP:
+						y -= 1;
+						break;
+					case DIRECTION_DOWN:
+						y += 1;
+						break;
+					}
+
+					if (detectConflictWithTank(x, y)) {
+						if (isTankUnbeatable) {
+							npc->remainMove = 0;
+							continue;
+						}
+						else {
+							isGameOver = true;
+							return;
+						}
+
+					}
+
+					if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) { // 이동하지 못하는 경우에 새로운 이동방향을 찾아내기 위해
+						npc->remainMove = 0;
+						continue;
+					}
+
+
+					npc->x = x;
+					npc->y = y;
+					npc->remainMove -= 1;
+					npc->check[1] = 0;
+					npc->check[2] = 0;
+					npc->check[3] = 0;
+					npc->check[4] = 0;
+
+					break;
+
+				}
+
+
+
+
+				npc = npc->rightLink;
+
+			} while (npc != npc_list.head);
+
+		}
+
+		Sleep(NPC_SPEED);
+
+	}
+
+
+	OutputDebugString(L"End Move NPC\n");
+
+}
+
+// 미사일을 이동시킴 (스레드 사용)
+void moveMissile(void * param) {
+
+	OutputDebugString(L"Start Move Missile\n");
+
+	while (!isGameOver) {
+
+		MISSILE* m = ALL_MISSILE;
+
+		MAP map = ALL_MAP[ROUND];
+
+		while (m != NULL) {
+
+			if (m->isEnable) {
+
+				int x = m->x;
+				int y = m->y;
+				int direction = m->direction;
+
+				switch (direction) {
+				case DIRECTION_LEFT:
+					x -= 1;
+					break;
+				case DIRECTION_RIGHT:
+					x += 1;
+					break;
+				case DIRECTION_UP:
+					y -= 1;
+					break;
+				case DIRECTION_DOWN:
+					y += 1;
+					break;
+				}
+
+				if (detectConflictWithNPC(m->x, m->y)) {
+					m->isEnable = false;
+					removeNPC(m->x, m->y, false);
+				}
+				else if (detectConflictWithNPC(x, y)) {
+					m->isEnable = false;
+					removeNPC(x, y, false);
+				}
+				else if (detectConflictWithWall(x, y)) {
+					m->isEnable = false;
+					removeWall(x, y);
+				}
+				else {
+					if (map.map[y][x] == 0 || map.map[y][x] == 4) {
+						m->x = x;
+						m->y = y;
+					}
+					else {
+						m->isEnable = false;
+					}
+				}
+
+
+
+			}
+
+
+			m = m->next;
+		}
+
+		Sleep(200);
+
+	}
+
+
+	OutputDebugString(L"End Move Missile\n");
+
+}
+
+// 갈고리를 사용함
+void useHook(void * param) {
+
+
+	int hookDelay = 20;
+
+	removeAllHook();
+
+	int direction = currentTankDirection;
+
+	int sumX, sumY;
+
+	switch (direction) {
+	case DIRECTION_LEFT:
+		sumX = -1;
+		sumY = 0;
+		break;
+	case DIRECTION_RIGHT:
+		sumX = 1;
+		sumY = 0;
+		break;
+	case DIRECTION_DOWN:
+		sumX = 0;
+		sumY = 1;
+		break;
+	case DIRECTION_UP:
+		sumX = 0;
+		sumY = -1;
+		break;
+	}
+
+	isHook = true; // 훅이 출력될 수 있게끔
+
+	MAP map = ALL_MAP[ROUND];
+
+	int x = myX + sumX;
+	int y = myY + sumY;
+
+	boolean isNPCConflict = false;
+
+	// 훅 이동을 위한 반복문
+	while (1) {
+
+		// 훅이 이동 가능한 상황일 경우
+		if (map.map[y][x] != 1 && map.map[y][x] != 2 && map.map[y][x] != 3 && map.map[y][x] != 9 && map.map[y][x] != 4 && map.map[y][x] != 8) {
+
+			addHook(x, y, direction);
+
+			x += sumX;
+			y += sumY;
+
+			if (detectConflictWithNPC(x, y)) {
+				isNPCConflict = true;
+				break;
+			}
+
+			Sleep(hookDelay);
+
+		}
+		else {
+			break;
+		}
+
+	}
+
+	HOOK* temp = HOOK_LIST;
+	HOOK * temp1;
+
+	// 탱크 이동을 위한 반복문
+	while (temp != NULL) {
+
+		int x = temp->x;
+		int y = temp->y;
+
+		if (!isNPCConflict) { // NPC에 의해 튕겨날 경우를 연출하기 위해
+			myX = x;
+			myY = y;
+		}
+
+		HOOK_LIST = temp->next;
+		free(temp);
+		temp = HOOK_LIST;
+
+
+		Sleep(hookDelay);
+
+	}
+
+	if (!isNPCConflict) {
+		hookCount -= 1;
+	}
+
+	isHook = false;
+	enableDirectionKey = true;
+
+
+
+}
+
+/*=======================================*/
+/*=======================================*/
+
+/*=======================================*/
+/*====== 아이템 사용과 관련된 함수 ======*/
+
+void useItem() {
+
+	srand((unsigned int)time(NULL));
+	int item = rand() % 5 + 6 - 5 * (itemDiceNumber % 2);
+
+
+	switch (item) {
+	case 1: // NPC 스피드 업
+		_beginthread(NPCSpeedUp, 1, NULL);
+		break;
+	case 2: // 조작횟수 반감
+		controlPoint = (controlPoint + 1) / 2;
+		break;
+	case 3: // 시야 가리기
+		_beginthread(restrictSight, 2, NULL);
+		Sleep(10);
+		break;
+	case 4: // 벽 단계 증가
+		mapDestroy(true);
+		break;
+	case 5: // NPC 추가
+		addNewNPC();
+		break;
+	case 6: // 조작횟수 증가
+		controlPoint += 2;
+		break;
+	case 7: // 벽 단계 감소
+		mapDestroy(false);
+		break;
+	case 8: // NPC 멈추기
+		_beginthread(NPCStop, 3, NULL);
+		break;
+	case 9: // 플레이어 무적
+		_beginthread(tankUnbeatable, 4, NULL);
+		Sleep(10);
+		printTank();
+		break;
+	case 10: // 원하는 NPC 삭제
+		removeOneNPC();
+		break;
+	}
+
+}
+
+// 원하는 NPC 1개 삭제
+void removeOneNPC() {
+
+	BufferClear();
+
+	// 시야가리기 일시적으로 취소
+	boolean sightTemp = enableSight;
+	enableSight = true;
+
+	// NPC 일시적으로 멈추기
+	boolean npcStopTemp = isNPCStop;
+	isNPCStop = true;
+
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
+	MAP map = ALL_MAP[ROUND];
+
+	// NPC가 없다면 함수 종료
+	if (npc_list.num == 0) {
+		isNPCStop = npcStopTemp;
+		enableSight = sightTemp;
+		return;
+	}
+
+
+	NPC* npc = npc_list.head;
+
+	int x = npc->x;
+	int y = npc->y;
+	int number = npc->number;
+
+	// 버퍼 2개 모두 필요한 부분만 그려둠
+	/*======================================*/
+
+	printMap();
+	printNPC();
+	printTank();
+
+	setBufferFontColor(FONT_LIGHT_RED_COLOR);
+	if (number == 5) {
+		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+	}
+	else if (number == 6) {
+		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+	}
+	setBufferFontColor(FONT_DEFAULT_COLOR);
+
+	Flipping();
+
+	/*======================================*/
+
+	BufferClear();
+
+	printMap();
+	printNPC();
+	printTank();
+
+	setBufferFontColor(FONT_LIGHT_RED_COLOR);
+	if (number == 5) {
+		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+	}
+	else if (number == 6) {
+		BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+	}
+	setBufferFontColor(FONT_DEFAULT_COLOR);
+
+	Flipping();
+
+	/*======================================*/
+
+	boolean isSelected = false;
+
+
+	while (!isSelected) {
+
+		int key;
+		if (_kbhit() != 0)
+		{
+			key = _getch();
+			switch (key)
+			{
+			case LEFT:
+				printNPC(); // NPC만 새로그리기
+				npc = npc->leftLink;
+				x = npc->x;
+				y = npc->y;
+				number = npc->number;
+
+				// 선택된 NPC만 빨간색으로 그리기
+				setBufferFontColor(FONT_LIGHT_RED_COLOR);
+				if (number == 5) {
+					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+				}
+				else if (number == 6) {
+					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+				}
+				setBufferFontColor(FONT_DEFAULT_COLOR);
+
+				Flipping();
+
+				break;
+			case RIGHT:
+				printNPC();
+				npc = npc->rightLink;
+				x = npc->x;
+				y = npc->y;
+				number = npc->number;
+
+				setBufferFontColor(FONT_LIGHT_RED_COLOR);
+				if (number == 5) {
+					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+				}
+				else if (number == 6) {
+					BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+				}
+				setBufferFontColor(FONT_DEFAULT_COLOR);
+
+				Flipping();
+
+				break;
+			case SPACE:
+				removeNPC(x, y, true); // NPC 제거
+				isSelected = true;
+				break;
+			}
+
+		}
+
+
+		Sleep(20);
+	}
+
+	isNPCStop = npcStopTemp;
+	enableSight = sightTemp;
+}
+
+// NPC 속도 증가
+void NPCSpeedUp(void * param) {
+
+	OutputDebugString(L"NPCSpeedUp : IN\n");
+
+	if (!isAlreadyNPCSpeed) {
+
+		isAlreadyNPCSpeed = true;
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
+
+		NPC_SPEED = NPC_SPEED / 2;
+		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
+			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
+		}
+
+		while (remainDiceNumberByNPCSpeed < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
+		}
+
+		NPC_SPEED = DEFAULT_NPC_SPEED;
+		isAlreadyNPCSpeed = false;
+
+	}
+	else { // 이미 같은 스레드가 실행 중일 경우
+		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
+		NPC_SPEED = NPC_SPEED / 2;
+		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
+			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
+		}
+	}
+
+	OutputDebugString(L"NPCSpeedUp : OUT\n");
+
+}
+
+// NPC 멈추기
+void NPCStop(void * param) {
+
+	OutputDebugString(L"NPCStop : IN\n");
+
+	if (!isAlreadyNPCStop) {
+
+		isAlreadyNPCStop = true;
+		remainDiceNumberByNPCStop = diceEnableNumber - 3;
+
+		isNPCStop = true;
+
+		while (remainDiceNumberByNPCStop < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
+		}
+
+		isNPCStop = false;
+		isAlreadyNPCStop = false;
+
+	}
+	else {
+		remainDiceNumberByNPCStop = diceEnableNumber - 3;
+	}
+
+	OutputDebugString(L"NPCStop : OUT\n");
+}
+
+// 탱크 무적
+void tankUnbeatable(void * param) {
+
+	OutputDebugString(L"tankUnbeatable : IN\n");
+
+	if (!isAlreadyTankUnbeatable) {
+
+		isAlreadyTankUnbeatable = true;
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
+
+		isTankUnbeatable = true;
+
+		while (remainDiceNumberByTankUnbeatable < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
+		}
+
+		isTankUnbeatable = false;
+		isAlreadyTankUnbeatable = false;
+
+	}
+	else {
+		remainDiceNumberByTankUnbeatable = diceEnableNumber - 3;
+	}
+	OutputDebugString(L"tankUnbeatable : OUT\n");
+
+}
+
+// 시야 가리기
+void restrictSight(void * param) {
+
+	OutputDebugString(L"restrictSight : IN\n");
+	if (!isAlreadySight) {
+
+		isAlreadySight = true;
+		remainDiceNumberBySight = diceEnableNumber - 4;
+
+		enableSight = false;
+
+		while (remainDiceNumberBySight < diceEnableNumber && (!isGameOver)) {
+			Sleep(100);
+		}
+
+		enableSight = true;
+		isAlreadySight = false;
+
+	}
+	else {
+		remainDiceNumberBySight = diceEnableNumber - 4;
+	}
+
+	OutputDebugString(L"restrictSight : OUT\n");
+
+
+}
+
+// true일 경우 맵 파괴 단계 증가, flase일 경우 감소
+void mapDestroy(boolean isUp) {
+
+	for (int y = 0; y < ALL_MAP[ROUND].y; y++) {
+		for (int x = 0; x < ALL_MAP[ROUND].x; x++) {
+
+			int number = ALL_MAP[ROUND].map[y][x];
+			if (isUp) {
+				if (1 <= number && number <= 2) {
+					ALL_MAP[ROUND].map[y][x] += 1;
+				}
+			}
+			else {
+				if (1 <= number && number <= 3) {
+					ALL_MAP[ROUND].map[y][x] -= 1;
+					if (ALL_MAP[ROUND].map[y][x] == 0) {
+						BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "　");
+					}
+				}
+			}
+		}
+	}
+
+}
+
+// 새로운 NPC 추가
+void addNewNPC() {
+
+	int x = rand() % ALL_MAP[ROUND].x;
+	x = x - (x % 2);
+	int y = rand() % ALL_MAP[ROUND].y;
+	y = y - (y % 2);
+	int number = 5;
+
+	while (1) {
+		if ((detectConflictWithTank(x, y) == false) && (detectConflictWithNPC(x, y) == false) && (detectConflictWithItem(x, y) == false) && (detectConflictWithWall(x, y) == false)) {
+			break;
+		}
+		else {// 생성 가능한 위치가 아닐 경우 새롭게 좌표 생성
+			x = rand() % ALL_MAP[ROUND].x;
+			x = x - (x % 2);
+			y = rand() % ALL_MAP[ROUND].y;
+			y = y - (y % 2);
+		}
+	}
+
+	addNPC(NPC_LIST[ROUND], x, y, number, 50);
+
+}
+
+/*=======================================*/
+/*=======================================*/
+
 
 // 현재 라운드에서 획득한 점수를 보여주는 페이지(성공했을 경우 점수, 실패할 경우 재시작 화면)
 void showCurrentRoundScore(boolean success) {
@@ -2262,9 +2536,6 @@ void showCurrentRoundScore(boolean success) {
 // 게임 클리어 페이지
 boolean showFinishPage() {
 
-
-
-
 	int count = 0;
 	int temp = TOTAL_SCORE;
 
@@ -2275,6 +2546,7 @@ boolean showFinishPage() {
 
 	}
 
+	// 기본 설정 너비가 예상 너비보다 작을 경우 너비를 늘려줌
 	int width = 0;
 	if (count * 10 > INIT_PAGE_WIDHT) {
 		width = count * 10;
@@ -2289,6 +2561,7 @@ boolean showFinishPage() {
 	setConsoleSize(width, INIT_PAGE_HEIGHT);
 
 
+	// 점수를 사용하기 편하게 배열에 추가
 	temp = TOTAL_SCORE;
 	int* num = (int*)malloc(sizeof(int)*count);
 
@@ -2318,6 +2591,7 @@ boolean showFinishPage() {
 
 	}
 
+	// 각종 안내 문구 출력
 	if (LIFE <= 0) {
 		SetCurrentCursorPos(width / 2 - 6, 5);
 		printf("Game Over!!!");
@@ -2348,10 +2622,10 @@ boolean showFinishPage() {
 	}
 }
 
-// 부가 함수
-void println() {
-	printf("\n");
-}
+
+/*=======================*/
+/*====== 부가 함수 ======*/
+
 void setConsoleSize(int cols, int lines) {
 
 	char commend[40];
@@ -2361,11 +2635,13 @@ void setConsoleSize(int cols, int lines) {
 	system(commend);
 
 }
+
 void setFontColor(int color) {
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
-// 스크린 버퍼 함수
+/*------ 스크린 버퍼 함수 ------*/
+
 void CreateBuffer() {
 
 	CONSOLE_CURSOR_INFO cci;
@@ -2418,6 +2694,12 @@ void Release() {
 void setBufferFontColor(int color) {
 	SetConsoleTextAttribute(hBuffer[nBufferIndex], color);
 }
+
+/*------------------------------*/
+
+/*=======================*/
+/*=======================*/
+
 
 // 제공받은 함수
 void SetCurrentCursorPos(int x, int y)
