@@ -947,6 +947,10 @@ void gameStart() {
 					mainDiceNumber = rand() % 6 + 1;
 					controlPoint = mainDiceNumber;
 					itemDiceNumber = rand() % 6 + 1;
+
+					if (mainDiceNumber == itemDiceNumber) {
+						hookCount += 1;
+					}
 					//drawDice();
 					//drawRemainCount();
 				}else { // 아닐경우 미사일 발사
