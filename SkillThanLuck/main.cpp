@@ -1465,7 +1465,7 @@ void printNPC() {
 
 }
 
-// 맵을 출력(NPC, TANK 모두 출력됨)
+// 맵을 출력
 void printMap() {
 
 	MAP map = ALL_MAP[ROUND];
@@ -2049,6 +2049,7 @@ void useHook(void * param) {
 /*=======================================*/
 /*====== 아이템 사용과 관련된 함수 ======*/
 
+// 아이템을 사용
 void useItem() {
 
 	srand((unsigned int)time(NULL));
