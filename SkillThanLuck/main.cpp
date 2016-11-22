@@ -59,6 +59,7 @@ typedef struct NPC {
 	int number;
 	int check[5];
 	int newNPC;
+	int color;
 	NPC * leftLink;
 	NPC * rightLink;
 }NPC;
@@ -89,6 +90,7 @@ typedef struct SCORE {
 	int count;
 	SCORE* next;
 }SCORE;
+
 
 /*==============================*/
 /*====== 전역 변수 선언부 ======*/
@@ -255,7 +257,7 @@ void RemoveCursor(void);
 int main() {
 
 	RemoveCursor();
-
+	
 	boolean check = true;
 
 
@@ -606,6 +608,7 @@ void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC) {
 		npc_list.head->remainMove = 0;
 		npc_list.head->direction = 0;
 		npc_list.head->newNPC = newNPC;
+		npc_list.head->color = FONT_DEFAULT_COLOR;
 
 		npc_list.head->rightLink = npc_list.head;
 		npc_list.head->leftLink = npc_list.head;
@@ -620,6 +623,7 @@ void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC) {
 		npc_list.tail->remainMove = 0;
 		npc_list.tail->direction = 0;
 		npc_list.tail->newNPC = newNPC;
+		npc_list.tail->color = FONT_DEFAULT_COLOR;
 
 		npc_list.tail->rightLink = npc_list.head;
 		npc_list.tail->leftLink = npc_list.head;
@@ -638,6 +642,7 @@ void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC) {
 		n->remainMove = 0;
 		n->direction = 0;
 		n->newNPC = newNPC;
+		n->color = FONT_DEFAULT_COLOR;
 
 		n->rightLink = npc_list.tail;
 		n->leftLink = npc_list.tail->leftLink;
@@ -1427,6 +1432,7 @@ void printNPC() {
 		int y = npc->y;
 		int number = npc->number;
 		int newNPC = npc->newNPC;
+		int color = npc->color;
 
 		if (!enableSight) { // 시야를 가릴 필요가 있을 경우
 			if ((myX - restrictSightRange <= x && x <= myX + restrictSightRange) && (myY - restrictSightRange <= y && y <= myY + restrictSightRange)) {
@@ -1447,6 +1453,7 @@ void printNPC() {
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 			else {
+				setBufferFontColor(color);
 				if (isNPCStop) { setBufferFontColor(3); }
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
 				setBufferFontColor(FONT_DEFAULT_COLOR);
@@ -1460,6 +1467,7 @@ void printNPC() {
 				setBufferFontColor(FONT_DEFAULT_COLOR);
 			}
 			else {
+				setBufferFontColor(color);
 				if (isNPCStop) { setBufferFontColor(FONT_JADE_COLOR); }
 				BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
 				setBufferFontColor(FONT_DEFAULT_COLOR);
@@ -1790,29 +1798,90 @@ void moveNPC(void * param) {
 					int remainMove = npc->remainMove;
 					int* check = npc->check;
 
-					if (remainMove == 0) { // NPC의 남은 이동횟수를 모두 소진한 경우
 
-						if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) { // 모든 방향으로 이동이 불가능할때
-							npc->check[1] = 0;
-							npc->check[2] = 0;
-							npc->check[3] = 0;
-							npc->check[4] = 0;
-							break;
-						}
+					boolean isInduce = true;
 
-						while (1) { // 아직 체크하지 않은 방향을 얻어냄
-							direction = rand() % 4 + 1;
-							if (check[direction] != 1) {
-								break;
+					if (isTankUnbeatable) {
+
+						isInduce = false;
+
+					}else if (x == myX) {
+						if (y < myY) {
+							direction = DIRECTION_DOWN;
+							for (int y2 = y+1; y2 < myY; y2++) {
+								if (detectConflictWithWall(x, y2)) {
+									isInduce = false;
+									break;
+								}
 							}
 						}
+						else {
+							direction = DIRECTION_UP;
+							for (int y2 = myY+1; y2 < y; y2++) {
+								if (detectConflictWithWall(x, y2)) {
+									isInduce = false;
+									break;
+								}
+							}
+						}
+					}
+					else if (y == myY) {
+						if (x < myX) {
+							direction = DIRECTION_RIGHT;
+							for (int x2 = x+1; x2 < myX; x2++) {
+								if (detectConflictWithWall(x2, y)) {
+									isInduce = false;
+									break;
+								}
+							}
+						}
+						else {
+							direction = DIRECTION_LEFT;
+							for (int x2 = myX+1; x2 < x; x2++) {
+								if (detectConflictWithWall(x2, y)) {
+									isInduce = false;
+									break;
+								}
+							}
+						}
+					}
+					else {
+						isInduce = false;
+					}
 
+ 					if (!isInduce) {
+
+						if (remainMove == 0) { // NPC의 남은 이동횟수를 모두 소진한 경우
+
+							if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) { // 모든 방향으로 이동이 불가능할때
+								npc->check[1] = 0;
+								npc->check[2] = 0;
+								npc->check[3] = 0;
+								npc->check[4] = 0;
+								break;
+							}
+
+							while (1) { // 아직 체크하지 않은 방향을 얻어냄
+								direction = rand() % 4 + 1;
+								if (check[direction] != 1) {
+									break;
+								}
+							}
+
+							npc->direction = direction;
+							npc->check[direction] = 1;
+
+							remainMove = rand() % 5 + 1;
+							npc->remainMove = remainMove;
+						}
+
+					}
+					else {
 						npc->direction = direction;
-						npc->check[direction] = 1;
-
 						remainMove = rand() % 5 + 1;
 						npc->remainMove = remainMove;
 					}
+
 
 					switch (direction) {
 					case DIRECTION_LEFT:
@@ -1841,9 +1910,11 @@ void moveNPC(void * param) {
 
 					}
 
-					if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) { // 이동하지 못하는 경우에 새로운 이동방향을 찾아내기 위해
-						npc->remainMove = 0;
-						continue;
+					if (!isInduce) {
+						if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) { // 이동하지 못하는 경우에 새로운 이동방향을 찾아내기 위해
+							npc->remainMove = 0;
+							continue;
+						}
 					}
 
 
@@ -1854,6 +1925,12 @@ void moveNPC(void * param) {
 					npc->check[2] = 0;
 					npc->check[3] = 0;
 					npc->check[4] = 0;
+					if (isInduce) {
+						npc->color = FONT_LIGHT_RED_COLOR;
+					}
+					else {
+						npc->color = FONT_DEFAULT_COLOR;
+					}
 
 					break;
 
