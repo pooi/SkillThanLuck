@@ -10,6 +10,9 @@
 #include"number.h"
 #include"dice.h"
 
+#define MIN(a,b) a<b? a:b
+#define MAX(a,b) a>b? a:b
+
 #define DIRECTION_LEFT 1
 #define DIRECTION_RIGHT 2
 #define DIRECTION_UP 3
@@ -27,6 +30,7 @@
 #define KEY_Q 113
 #define KEY_R 114
 #define KEY_C 99
+#define KEY_V 118
 
 #define FONT_DEFAULT_COLOR 7
 #define FONT_BLUE_COLOR 1
@@ -42,6 +46,8 @@
 #define PLAYER_COLOR 9
 
 #define DEFAULT_NPC_SPEED 800
+#define BLACK_HOLE_RANGE 3
+#define BLACK_HOLE_TIME 3000
 
 
 typedef struct MAP {
@@ -119,12 +125,18 @@ int diceEnableNumber = 0;
 int myX = 0;
 int myY = 0;
 int hookCount = 0;
+int blackHoleCount = 0;
+int blackHoleX = 0;
+int blackHoleY = 0;
+int blackHoleIndex = 0;
 boolean enableDice = false;
 boolean enableMoveNPC = false;
 boolean enableDirectionKey = true;
 boolean isGameOver = false;
 boolean isSuccess = false;
 boolean isHook = false;
+boolean isBlackHole = false;
+boolean isBlackHoleMoveFinish = false;
 MAP* ALL_MAP = NULL;
 NPC_HEAD* NPC_LIST = NULL;
 MISSILE* ALL_MISSILE = NULL;
@@ -185,6 +197,7 @@ void drawGamePage();
 // 맵 주변 안내 문구 출력부
 void printLife();
 void printRemainHook();
+void printRemainBlackHole();
 void printNotiMessage();
 void printItemNotiMessage();
 
@@ -194,6 +207,7 @@ void drawRemainCount();
 
 // 맵과 연관된 객체 출력부
 void printHook();
+void printBlackHole();
 void printTank();
 void printNPC();
 void printMap();
@@ -214,6 +228,8 @@ boolean moveTank(int direction);
 void moveNPC(void * param);
 void moveMissile(void * param);
 void useHook(void * param);
+void useBlackHole(void * param);
+void rotateBlackHole(void * param);
 
 // 아이템 사용과 관련된 함수
 void useItem();
@@ -871,6 +887,10 @@ void gamePageInit() {
 	myX = map.startX;
 	myY = map.startY;
 	hookCount = map.hook;
+	blackHoleCount = 5;
+	blackHoleX = 0;
+	blackHoleY = 0;
+	blackHoleIndex = 0;
 	currentTankDirection = DIRECTION_UP;
 
 	enableDice = true;
@@ -878,6 +898,9 @@ void gamePageInit() {
 	enableDirectionKey = true;
 	isGameOver = false;
 	isSuccess = false;
+	isHook = false;
+	isBlackHole = false;
+	isBlackHoleMoveFinish = false;
 
 	// 아이템 관련 전역변수 초기화
 	enableSight = true;
@@ -936,9 +959,17 @@ void gameStart() {
 				break;
 			case KEY_C:
 				if (!enableDice) {
-					if (hookCount > 0) {
+					if (!isHook && hookCount > 0) {
 						enableDirectionKey = false;
 						_beginthread(useHook, 5, NULL);
+					}
+				}
+				break;
+			case KEY_V:
+				if (!enableDice) {
+					if (!isBlackHole && blackHoleCount > 0) {
+						isBlackHole = true;
+						_beginthread(useBlackHole, 6, NULL);
 					}
 				}
 				break;
@@ -953,11 +984,17 @@ void gameStart() {
 					controlPoint = mainDiceNumber;
 					itemDiceNumber = rand() % 6 + 1;
 
+					// 주사위가 더블일 경우
 					if (mainDiceNumber == itemDiceNumber) {
-						hookCount += 1;
+						if (mainDiceNumber <= 3) {
+							hookCount += 1;
+						}
+						else {
+							blackHoleCount += 1;
+						}
+						
 					}
-					//drawDice();
-					//drawRemainCount();
+
 				}else { // 아닐경우 미사일 발사
 					controlDirectionKey(10);
 				}
@@ -1031,6 +1068,7 @@ void drawGamePage() {
 	printLife();
 	setBufferFontColor(FONT_DEFAULT_COLOR);
 	printMap();
+	printBlackHole();
 	printNPC();
 	printMissile();
 	printHook();
@@ -1046,6 +1084,7 @@ void drawGamePage() {
 	printNotiMessage();
 	printItemNotiMessage();
 	printRemainHook();
+	printRemainBlackHole();
 
 
 	printTank();
@@ -1081,7 +1120,19 @@ void printRemainHook() {
 	// 맵 우측 하단에 남은 갈고리 개수 출력
 	setBufferFontColor(FONT_GREED_COLOR);
 	for (int i = 1; i <= hookCount; i++) {
-		BufferWrite(GBOARD_ORIGIN_X + CURRENT_MAP_WIDTH - (i * 2), GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT, "§");
+		BufferWrite(GBOARD_ORIGIN_X + CURRENT_MAP_WIDTH - (i * 2), GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT, "∫");
+	}
+	setBufferFontColor(FONT_DEFAULT_COLOR);
+
+}
+
+// 남은 블랙홀 횟수를 출력함
+void printRemainBlackHole() {
+
+	// 맵 우측 하단에 남은 블랙홀 개수 출력
+	setBufferFontColor(FONT_GREED_COLOR);
+	for (int i = 1; i <= blackHoleCount; i++) {
+		BufferWrite(GBOARD_ORIGIN_X + CURRENT_MAP_WIDTH - (i * 2), GBOARD_ORIGIN_Y + CURRENT_MAP_HEIGHT+1, "§");
 	}
 	setBufferFontColor(FONT_DEFAULT_COLOR);
 
@@ -1344,6 +1395,81 @@ void printHook() {
 			temp = temp->next;
 
 
+		}
+
+	}
+
+}
+
+// 블랙홀 출력
+void printBlackHole() {
+
+	if (isBlackHole) {
+
+		switch (blackHoleIndex) {
+		case DIRECTION_LEFT:
+			BufferWrite(GBOARD_ORIGIN_X + (blackHoleX * 2), GBOARD_ORIGIN_Y + blackHoleY, "⊂");
+			break;
+		case DIRECTION_RIGHT:
+			BufferWrite(GBOARD_ORIGIN_X + (blackHoleX * 2), GBOARD_ORIGIN_Y + blackHoleY, "⊃");
+			break;
+		case DIRECTION_DOWN:
+			BufferWrite(GBOARD_ORIGIN_X + (blackHoleX * 2), GBOARD_ORIGIN_Y + blackHoleY, "∪");
+			break;
+		case DIRECTION_UP:
+			BufferWrite(GBOARD_ORIGIN_X + (blackHoleX * 2), GBOARD_ORIGIN_Y + blackHoleY, "∩");
+			break;
+		}
+
+	}
+
+	// 블랙홀이 정착했을 경우 주변 틀을 그림
+	if (isBlackHoleMoveFinish) {
+
+		MAP map = ALL_MAP[ROUND];
+
+		int maxY = MIN(map.y, blackHoleY + BLACK_HOLE_RANGE + 1);
+		int minY = MAX(0, blackHoleY - BLACK_HOLE_RANGE);
+		int minX = MAX(0, blackHoleX - BLACK_HOLE_RANGE);
+		int maxX = MIN(map.x, blackHoleX + BLACK_HOLE_RANGE + 1);
+
+		for (int y = minY; y < maxY; y++) {
+			for (int x = minX; x < maxX; x++) {
+
+				int num = map.map[y][x];
+				if (num != 9 && num != 8) {
+
+					if (x == minX) {
+						if (y == minY) {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "┌");
+						}
+						else if (y == maxY - 1) {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "└");
+						}
+						else {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "│");
+						}
+					}
+					else if (x == maxX - 1) {
+						if (y == minY) {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "┐");
+						}
+						else if (y == maxY - 1) {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "┘");
+						}
+						else {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "│");
+						}
+					}
+					else {
+						if (y == minY || y == maxY - 1) {
+							BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "─");
+						}
+					}
+
+				}
+
+			}
 		}
 
 	}
@@ -1777,173 +1903,218 @@ void moveNPC(void * param) {
 
 	while (!isGameOver) { // 게임이 종료될때까지 반복
 
-		if (!isNPCStop) { // NPC가 멈춰야할 경우가 아니라면
+		NPC_HEAD npc_list = NPC_LIST[ROUND];
 
-			NPC_HEAD npc_list = NPC_LIST[ROUND];
+		if (npc_list.num == 0) { // NPC가 없으면 종료
+			continue;
+		}
 
-			if (npc_list.num == 0) { // NPC가 없으면 종료
-				continue;
-			}
+		NPC* npc = npc_list.head;
+		MAP map = ALL_MAP[ROUND];
 
-			NPC* npc = npc_list.head;
-			MAP map = ALL_MAP[ROUND];
+		do {
 
-			do {
+			while (1) { // 이동가능한 방향을 찾기 위해
 
-				while (1) { // 이동가능한 방향을 찾기 위해
+				int x = npc->x;
+				int y = npc->y;
+				int direction = npc->direction;
+				int remainMove = npc->remainMove;
+				int* check = npc->check;
 
-					int x = npc->x;
-					int y = npc->y;
-					int direction = npc->direction;
-					int remainMove = npc->remainMove;
-					int* check = npc->check;
+				if (isBlackHole) {
 
+					if (blackHoleX - BLACK_HOLE_RANGE <= x && x <= blackHoleX + BLACK_HOLE_RANGE && blackHoleY - BLACK_HOLE_RANGE <= y && y <= blackHoleY + BLACK_HOLE_RANGE) {
 
-					boolean isInduce = true;
+						int tempX = x;
+						int tempY = y;
 
-					if (isTankUnbeatable) {
+						if (x < blackHoleX) {
+							tempX += 1;
+						}
+						else if (x > blackHoleX) {
+							tempX -= 1;
+						}
 
-						isInduce = false;
+						if (y < blackHoleY) {
+							tempY += 1;
+						}
+						else if (y > blackHoleY) {
+							tempY -= 1;
+						}
 
-					}else if (x == myX) {
-						if (y < myY) {
-							direction = DIRECTION_DOWN;
-							for (int y2 = y+1; y2 < myY; y2++) {
-								if (detectConflictWithWall(x, y2)) {
-									isInduce = false;
-									break;
-								}
-							}
+						if (ALL_MAP[ROUND].map[tempY][tempX] != 8 && ALL_MAP[ROUND].map[tempY][tempX] != 9 && (!detectConflictWithNPC(tempX, tempY))) {
+							npc->x = tempX;
+							npc->y = tempY;
 						}
 						else {
-							direction = DIRECTION_UP;
-							for (int y2 = myY+1; y2 < y; y2++) {
-								if (detectConflictWithWall(x, y2)) {
-									isInduce = false;
-									break;
-								}
-							}
+							npc->x = x;
+							npc->y = y;
 						}
-					}
-					else if (y == myY) {
-						if (x < myX) {
-							direction = DIRECTION_RIGHT;
-							for (int x2 = x+1; x2 < myX; x2++) {
-								if (detectConflictWithWall(x2, y)) {
-									isInduce = false;
-									break;
-								}
-							}
-						}
-						else {
-							direction = DIRECTION_LEFT;
-							for (int x2 = myX+1; x2 < x; x2++) {
-								if (detectConflictWithWall(x2, y)) {
-									isInduce = false;
-									break;
-								}
-							}
-						}
-					}
-					else {
-						isInduce = false;
+
+						npc->remainMove = 0;
+						npc->color = FONT_DEFAULT_COLOR;
+						npc->check[1] = 0;
+						npc->check[2] = 0;
+						npc->check[3] = 0;
+						npc->check[4] = 0;
+
+						break;
+
 					}
 
- 					if (!isInduce) {
+				}
 
-						if (remainMove == 0) { // NPC의 남은 이동횟수를 모두 소진한 경우
+				if (isNPCStop) {// NPC가 멈춰야할 경우
+					break;
+				}
 
-							if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) { // 모든 방향으로 이동이 불가능할때
-								npc->check[1] = 0;
-								npc->check[2] = 0;
-								npc->check[3] = 0;
-								npc->check[4] = 0;
+				boolean isInduce = true;
+
+				if (isTankUnbeatable) {
+
+					isInduce = false;
+
+				}
+				else if (x == myX) {
+					if (y < myY) {
+						direction = DIRECTION_DOWN;
+						for (int y2 = y + 1; y2 < myY; y2++) {
+							if (detectConflictWithWall(x, y2)) {
+								isInduce = false;
 								break;
 							}
-
-							while (1) { // 아직 체크하지 않은 방향을 얻어냄
-								direction = rand() % 4 + 1;
-								if (check[direction] != 1) {
-									break;
-								}
-							}
-
-							npc->direction = direction;
-							npc->check[direction] = 1;
-
-							remainMove = rand() % 5 + 1;
-							npc->remainMove = remainMove;
 						}
-
 					}
 					else {
+						direction = DIRECTION_UP;
+						for (int y2 = myY + 1; y2 < y; y2++) {
+							if (detectConflictWithWall(x, y2)) {
+								isInduce = false;
+								break;
+							}
+						}
+					}
+				}
+				else if (y == myY) {
+					if (x < myX) {
+						direction = DIRECTION_RIGHT;
+						for (int x2 = x + 1; x2 < myX; x2++) {
+							if (detectConflictWithWall(x2, y)) {
+								isInduce = false;
+								break;
+							}
+						}
+					}
+					else {
+						direction = DIRECTION_LEFT;
+						for (int x2 = myX + 1; x2 < x; x2++) {
+							if (detectConflictWithWall(x2, y)) {
+								isInduce = false;
+								break;
+							}
+						}
+					}
+				}
+				else {
+					isInduce = false;
+				}
+
+				if (!isInduce) {
+
+					if (remainMove == 0) { // NPC의 남은 이동횟수를 모두 소진한 경우
+
+						if (check[1] == 1 && check[2] == 1 && check[3] == 1 && check[4] == 1) { // 모든 방향으로 이동이 불가능할때
+							npc->check[1] = 0;
+							npc->check[2] = 0;
+							npc->check[3] = 0;
+							npc->check[4] = 0;
+							break;
+						}
+
+						while (1) { // 아직 체크하지 않은 방향을 얻어냄
+							direction = rand() % 4 + 1;
+							if (check[direction] != 1) {
+								break;
+							}
+						}
+
 						npc->direction = direction;
+						npc->check[direction] = 1;
+
 						remainMove = rand() % 5 + 1;
 						npc->remainMove = remainMove;
 					}
 
-
-					switch (direction) {
-					case DIRECTION_LEFT:
-						x -= 1;
-						break;
-					case DIRECTION_RIGHT:
-						x += 1;
-						break;
-					case DIRECTION_UP:
-						y -= 1;
-						break;
-					case DIRECTION_DOWN:
-						y += 1;
-						break;
-					}
-
-					if (detectConflictWithTank(x, y)) {
-						if (isTankUnbeatable) {
-							npc->remainMove = 0;
-							continue;
-						}
-						else {
-							isGameOver = true;
-							return;
-						}
-
-					}
-
-					if (!isInduce) {
-						if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) { // 이동하지 못하는 경우에 새로운 이동방향을 찾아내기 위해
-							npc->remainMove = 0;
-							continue;
-						}
-					}
-
-
-					npc->x = x;
-					npc->y = y;
-					npc->remainMove -= 1;
-					npc->check[1] = 0;
-					npc->check[2] = 0;
-					npc->check[3] = 0;
-					npc->check[4] = 0;
-					if (isInduce) {
-						npc->color = FONT_LIGHT_RED_COLOR;
-					}
-					else {
-						npc->color = FONT_DEFAULT_COLOR;
-					}
-
-					break;
-
+				}
+				else {
+					npc->direction = direction;
+					remainMove = rand() % 5 + 1;
+					npc->remainMove = remainMove;
 				}
 
 
+				switch (direction) {
+				case DIRECTION_LEFT:
+					x -= 1;
+					break;
+				case DIRECTION_RIGHT:
+					x += 1;
+					break;
+				case DIRECTION_UP:
+					y -= 1;
+					break;
+				case DIRECTION_DOWN:
+					y += 1;
+					break;
+				}
+
+				if (detectConflictWithTank(x, y)) {
+					if (isTankUnbeatable) {
+						npc->remainMove = 0;
+						continue;
+					}
+					else {
+						isGameOver = true;
+						return;
+					}
+
+				}
+
+				if (!isInduce) {
+					if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) { // 이동하지 못하는 경우에 새로운 이동방향을 찾아내기 위해
+						npc->remainMove = 0;
+						continue;
+					}
+				}
 
 
-				npc = npc->rightLink;
+				npc->x = x;
+				npc->y = y;
+				npc->remainMove -= 1;
+				npc->check[1] = 0;
+				npc->check[2] = 0;
+				npc->check[3] = 0;
+				npc->check[4] = 0;
+				if (isInduce) {
+					npc->color = FONT_LIGHT_RED_COLOR;
+				}
+				else {
+					npc->color = FONT_DEFAULT_COLOR;
+				}
 
-			} while (npc != npc_list.head);
+				break;
 
-		}
+			}
+
+
+
+
+			npc = npc->rightLink;
+
+		} while (npc != npc_list.head);
+
+
 
 		Sleep(NPC_SPEED);
 
@@ -2123,6 +2294,232 @@ void useHook(void * param) {
 	enableDirectionKey = true;
 
 
+
+}
+
+// 블랙홀 사용
+void useBlackHole(void * param) {
+
+	int delay = 50;
+
+	isBlackHole = true;
+	isBlackHoleMoveFinish = false;
+
+	int sumX, sumY;
+
+	blackHoleIndex = currentTankDirection;
+
+	// 블랙홀 진행 방향을 정함
+	switch (blackHoleIndex) {
+	case DIRECTION_LEFT:
+		sumX = -1;
+		sumY = 0;
+		break;
+	case DIRECTION_RIGHT:
+		sumX = 1;
+		sumY = 0;
+		break;
+	case DIRECTION_DOWN:
+		sumX = 0;
+		sumY = 1;
+		break;
+	case DIRECTION_UP:
+		sumX = 0;
+		sumY = -1;
+		break;
+	}
+
+	int x = myX;// +sumX;
+	int y = myY;// +sumY;
+
+	blackHoleX = myX;// +sumX;
+	blackHoleY = myY;// +sumY;
+
+
+	// 블랙홀 발사를 연출하기 위한 반복문
+	while (1) {
+
+		MAP map = ALL_MAP[ROUND];
+
+		x += sumX;
+		y += sumY;
+
+		// 맵 및 NPC와 충돌하기 전까지 이동
+		if (detectConflictWithWall(x, y) || detectConflictWithNPC(x, y)) {
+			break;
+		}
+		else {
+			blackHoleX = x;
+			blackHoleY = y;
+		}
+
+		Sleep(delay);
+
+
+	}
+
+	// 이동하지 않았다면 블랙홀을 발동하지 않음
+	if (myX == blackHoleX && myY == blackHoleY) {
+		isBlackHole = false;
+		return;
+	}
+
+	// 블랙홀 기능
+
+	isBlackHoleMoveFinish = true;
+	blackHoleCount -= 1;
+
+	_beginthread(rotateBlackHole, 8, NULL); // 블랙홀 중심이 돌아가는 것을 연출하기 위한 스레드
+
+	for (int i = 0; i < BLACK_HOLE_TIME/200; i++) {
+
+		if (isGameOver) {
+			return;
+		}
+
+		MAP map = ALL_MAP[ROUND];
+
+		int maxY = MIN(map.y, blackHoleY + BLACK_HOLE_RANGE + 1);
+		int minY = MAX(0, blackHoleY - BLACK_HOLE_RANGE);
+		int minX = MAX(0, blackHoleX - BLACK_HOLE_RANGE);
+		int maxX = MIN(map.x, blackHoleX + BLACK_HOLE_RANGE + 1);
+
+		// 블랙홀 바로 위 라인부터 블럭이 있다면 한칸씩 내림
+		for (int y = blackHoleY - 1; y >= minY; y--) {
+
+			for (int x = minX; x < maxX; x++) {
+
+				int num = map.map[y][x];
+				if (1 <= num && num <= 4) { // 벽이라면
+
+					int tempY = y + 1;
+
+					if (ALL_MAP[ROUND].map[tempY][x] != 8 && ALL_MAP[ROUND].map[tempY][x] != 9) {
+						ALL_MAP[ROUND].map[y][x] = 0;
+						ALL_MAP[ROUND].map[tempY][x] = num;
+					}
+
+					if (i == 0) { // 중복 집계를 피하기 위해
+						if (num != 4) { // 아이템을 제외하고 점수에 추가
+							addScore(num);
+						}
+					}
+
+				}
+
+			}
+
+		}
+		// 블랙홀 바로 아래 라인부터 블럭이 있다면 한칸씩 올림
+		for (int y = blackHoleY + 1; y < maxY; y++) {
+
+			for (int x = minX; x < maxX; x++) {
+
+				int num = map.map[y][x];
+				if (1 <= num && num <= 4) {
+
+					int tempY = y-1;
+
+					if (ALL_MAP[ROUND].map[tempY][x] != 8 && ALL_MAP[ROUND].map[tempY][x] != 9) {
+						ALL_MAP[ROUND].map[y][x] = 0;
+						ALL_MAP[ROUND].map[tempY][x] = num;
+					}
+
+					if (i == 0) { // 중복 집계를 피하기 위해
+						if (num != 4) { // 아이템을 제외하고 점수에 추가
+							addScore(num);
+						}
+					}
+
+				}
+
+			}
+
+		}
+
+		// 블랙홀 바로 왼쪽 라인부터 블럭이 있다면 한칸씩 오른쪽으로 땡김
+		for (int x = blackHoleX-1; x >= minX; x--) {
+
+			for (int y = minY; y < maxY; y++) {
+
+				int num = map.map[y][x];
+				if (1 <= num && num <= 4) {
+
+					int tempX = x + 1;
+
+					if (ALL_MAP[ROUND].map[y][tempX] != 8 && ALL_MAP[ROUND].map[y][tempX] != 9) {
+						ALL_MAP[ROUND].map[y][x] = 0;
+						ALL_MAP[ROUND].map[y][tempX] = num;
+					}
+
+					if (i == 0) { // 중복 집계를 피하기 위해
+						if (num != 4) { // 아이템을 제외하고 점수에 추가
+							addScore(num);
+						}
+					}
+
+				}
+
+			}
+
+		}
+		// 블랙홀 바로 오른쪽 라인부터 블럭이 있다면 한칸씩 왼쪽으로 땡김
+		for (int x = blackHoleX + 1; x < maxX; x++) {
+
+			for (int y = minY; y < maxY; y++) {
+
+				int num = map.map[y][x];
+				if (1 <= num && num <= 4) {
+
+					int tempX = x - 1;
+
+					if (ALL_MAP[ROUND].map[y][tempX] != 8 && ALL_MAP[ROUND].map[y][tempX] != 9) {
+						ALL_MAP[ROUND].map[y][x] = 0;
+						ALL_MAP[ROUND].map[y][tempX] = num;
+					}
+
+					if (i == 0) { // 중복 집계를 피하기 위해
+						if (num != 4) { // 아이템을 제외하고 점수에 추가
+							addScore(num);
+						}
+					}
+
+				}
+
+			}
+
+		}
+
+		// 블랙홀의 중심에 있는 벽 및 NPC 삭제
+		ALL_MAP[ROUND].map[blackHoleY][blackHoleX] = 0;
+		removeNPC(blackHoleX, blackHoleY, true);
+
+		Sleep(200);
+
+	}
+
+	isBlackHoleMoveFinish = false;
+	isBlackHole = false;
+
+}
+
+// 블랙홀의 방향을 돌림
+void rotateBlackHole(void * param) {
+
+	int index = blackHoleIndex;
+
+	for (int i = 0; i < BLACK_HOLE_TIME/100; i++) {
+
+		if (isGameOver) {
+			return;
+		}
+
+		blackHoleIndex = index % 4 + 1;
+		index += 1;
+
+		Sleep(100);
+
+	}
 
 }
 
