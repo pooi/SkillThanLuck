@@ -173,6 +173,7 @@ HANDLE hBuffer[2];
 // 초기 페이지
 void initPage();
 void drawInitDefault();
+void printMapToInitPage(MAP map);
 void loadMap();
 
 // 연결 리스트와 관련된 함수
@@ -332,8 +333,7 @@ void initPage() {
 
 		if (ROUND != tempRound) { // 라운드가 바뀌면 화면 새로고침
 			tempRound = ROUND;
-			SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2 + 2);
-			printf("◀  %d  ▶", ROUND + 1);
+			drawInitDefault();
 		}
 
 
@@ -378,8 +378,13 @@ void initPage() {
 // 초기 페이지를 그림
 void drawInitDefault() {
 
+
+	MAP map = ALL_MAP[ROUND];
+
 	system("cls");
-	setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
+	setConsoleSize(INIT_PAGE_WIDHT + map.x * 2 + GBOARD_ORIGIN_X * 2, INIT_PAGE_HEIGHT);
+
+	//setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
 
 	// 파일로부터 큰 제목 입력
 	FILE *f;
@@ -427,6 +432,106 @@ void drawInitDefault() {
 	printf("Quit : q");
 	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 11, INIT_PAGE_HEIGHT / 2 + 10);
 	printf("press any key to start");
+
+	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2 + 2);
+	printf("◀  %d  ▶", ROUND + 1);
+
+	printMapToInitPage(map);
+}
+
+// 초기 페이지에서의 맵 보여주기
+void printMapToInitPage(MAP map) {
+
+	// print line
+	for (int y = 0; y < INIT_PAGE_HEIGHT; y++) {
+
+		SetCurrentCursorPos(INIT_PAGE_WIDHT, y);
+		printf("│");
+
+	}
+
+	SetCurrentCursorPos(INIT_PAGE_WIDHT + GBOARD_ORIGIN_X + map.x - 5, GBOARD_ORIGIN_Y + 3);
+	printf("맵 미리보기");
+
+	// print map
+	for (int y = 0; y < map.y; y++) {
+		for (int x = 0; x < map.x; x++) {
+
+			SetCurrentCursorPos(INIT_PAGE_WIDHT + GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y+5 + y);
+
+			switch (map.map[y][x]) {
+			case 0:
+				printf("　");
+				break;
+			case 1:
+				printf("□");
+				break;
+			case 2:
+				printf("■");
+				break;
+			case 3:
+				printf("▣");
+				break;
+			case 4:
+				printf("＊");
+				break;
+			case 5:
+				printf("♠");
+				break;
+			case 6:
+				printf("♤");
+				break;
+			case 7:
+				printf("◀");
+				break;
+			case 8:
+				printf("★");
+				break;
+			case 9:
+				printf("●");
+				break;
+			default:
+				printf("○");
+				break;
+			}
+		}
+	}
+
+	// print player
+	SetCurrentCursorPos(INIT_PAGE_WIDHT + GBOARD_ORIGIN_X + (map.startX * 2), GBOARD_ORIGIN_Y + 5 + map.startY);
+	printf("◀");
+
+	// print npc
+	NPC_HEAD npc_list = NPC_LIST[ROUND];
+
+	if (npc_list.num == 0) {
+		return;
+	}
+
+	NPC* npc = npc_list.head;
+
+	do {
+
+		int x = npc->x;
+		int y = npc->y;
+		int number = npc->number;
+		int newNPC = npc->newNPC;
+		int color = npc->color;
+
+		if (number == 5) {
+			SetCurrentCursorPos(INIT_PAGE_WIDHT + GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + 5 + y);
+			printf("♤");
+			//BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♤");
+		}
+		else if (number == 6) {
+			SetCurrentCursorPos(INIT_PAGE_WIDHT + GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + 5 + y);
+			printf("♠");
+			//BufferWrite(GBOARD_ORIGIN_X + (x * 2), GBOARD_ORIGIN_Y + y, "♠");
+		}
+
+		npc = npc->rightLink;
+	} while (npc != npc_list.head);
+
 }
 
 // 데이터로부터 맵을 로딩
