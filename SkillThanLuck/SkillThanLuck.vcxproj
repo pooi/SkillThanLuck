@@ -152,6 +152,10 @@
     <ClInclude Include="dice.h" />
     <ClInclude Include="number.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="map.txt" />
+    <Text Include="title.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

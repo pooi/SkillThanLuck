@@ -1,4 +1,5 @@
 #pragma warning(disable: 4996)
+#pragma comment(lib,"winmm.lib")
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -7,6 +8,7 @@
 #include<conio.h>
 #include<string.h>
 #include<time.h>
+#include <mmsystem.h>
 #include"number.h"
 #include"dice.h"
 
@@ -43,7 +45,7 @@
 #define FONT_LIGHT_YELLOW_COLOR 14
 #define FONT_LIGHT_BLUE_COLOR 9
 #define FONT_LIGHT_JADE_COLOR 11
-#define PLAYER_COLOR 9
+#define PLAYER_COLOR 14
 
 #define DEFAULT_NPC_SPEED 800
 #define BLACK_HOLE_RANGE 3
@@ -55,6 +57,7 @@ typedef struct MAP {
 	int startX, startY;
 	int count;
 	int hook;
+	int blackHole;
 	int** map;
 }MAP;
 
@@ -105,7 +108,7 @@ typedef struct SCORE {
 const int GBOARD_ORIGIN_X = 8;
 const int GBOARD_ORIGIN_Y = 4;
 const int INIT_PAGE_WIDHT = 150;
-const int INIT_PAGE_HEIGHT = 50;
+const int INIT_PAGE_HEIGHT = 54;
 const int SUB_GBOARD_WIDTH = 25;
 const int SUB_GBOARD_HEIGHT = 20;
 int CURRENT_CONSOLE_WIDTH = 0;
@@ -129,6 +132,7 @@ int blackHoleCount = 0;
 int blackHoleX = 0;
 int blackHoleY = 0;
 int blackHoleIndex = 0;
+int blackHoleTempNPCSpeed = 0;
 boolean enableDice = false;
 boolean enableMoveNPC = false;
 boolean enableDirectionKey = true;
@@ -179,7 +183,7 @@ void loadMap();
 // 연결 리스트와 관련된 함수
 void addMissile(int x, int y, int direction);
 void removeAllMissile();
-void addHook(int x, int y, int direction, boolean isHead);
+void addHook(int x, int y, int direction);
 void removeAllHook();
 void addNPC(NPC_HEAD& npc_list, int x, int y, int number, int newNPC);
 void removeAllNPCList();
@@ -333,7 +337,11 @@ void initPage() {
 
 		if (ROUND != tempRound) { // 라운드가 바뀌면 화면 새로고침
 			tempRound = ROUND;
-			drawInitDefault();
+
+			SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2 + 2);
+			printf("◀  %d  ▶", ROUND + 1);
+
+			//drawInitDefault();
 		}
 
 
@@ -382,9 +390,9 @@ void drawInitDefault() {
 	MAP map = ALL_MAP[ROUND];
 
 	system("cls");
-	setConsoleSize(INIT_PAGE_WIDHT + map.x * 2 + GBOARD_ORIGIN_X * 2, INIT_PAGE_HEIGHT);
+	//setConsoleSize(INIT_PAGE_WIDHT + map.x * 2 + GBOARD_ORIGIN_X * 2, INIT_PAGE_HEIGHT);
 
-	//setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
+	setConsoleSize(INIT_PAGE_WIDHT, INIT_PAGE_HEIGHT);
 
 	// 파일로부터 큰 제목 입력
 	FILE *f;
@@ -436,7 +444,7 @@ void drawInitDefault() {
 	SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 4, INIT_PAGE_HEIGHT / 2 + 2);
 	printf("◀  %d  ▶", ROUND + 1);
 
-	printMapToInitPage(map);
+	//printMapToInitPage(map);
 }
 
 // 초기 페이지에서의 맵 보여주기
@@ -554,6 +562,7 @@ void loadMap() {
 		fscanf(f, "%d", &ALL_MAP[i].y);
 		fscanf(f, "%d", &ALL_MAP[i].count);
 		fscanf(f, "%d", &ALL_MAP[i].hook);
+		fscanf(f, "%d", &ALL_MAP[i].blackHole);
 
 		// 맵 초기화 구문
 		ALL_MAP[i].map = (int**)malloc(sizeof(int*)*ALL_MAP[i].y);
@@ -782,9 +791,12 @@ void removeAllNPCList() {
 		return;
 	}
 
-	for (int i = 0; i < ROUND; i++) {
+	for (int i = 0; i < MAXIMUM_ROUND; i++) {
 		NPC_HEAD npc_list = NPC_LIST[i];
 
+		if (npc_list.head == NULL) {
+			continue;
+		}
 		NPC* temp = npc_list.head->rightLink;
 		NPC* temp1;
 		do {
@@ -868,7 +880,7 @@ void removeAllScore() {
 void helpPage() {
 
 	system("cls");
-	SetCurrentCursorPos(GBOARD_ORIGIN_X, GBOARD_ORIGIN_Y);
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, 2);
 	printf("당신은 ▲입니다. NPC를 피해 도착지점까지 무사히 도착하세요!\n\n\n");
 
 	int y = GetCurrentCursorPos().Y;
@@ -886,11 +898,11 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* c : 갈고리 발사\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* v : 블랙홀 발사\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* Space bar : 미사일 발사\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* Q : 초기화면에서 도움말\n\n");
-	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
-	printf("* ESC : 뒤로 가기\n\n");
 
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 30, y);
 	printf("● 게임 요소\n\n");
@@ -906,15 +918,26 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
 	printf("* ♠ : 2단계 NPC\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
-	printf("* ▩ : 함정\n\n");
+	printf("* ＊ : 아이템 사용\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
-	printf("* ＝,∥ : 미사일\n\n\n\n\n");
+	printf("* ★ : 도착 지점\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ＝,∥ : 미사일\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* ∫ : 남은 갈고리 횟수\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 32, GetCurrentCursorPos().Y);
+	printf("* § : 남은 블랙홀 횟수\n\n\n");
 
+
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
+	printf("● Spacebar로 주사위를 굴리고, 좌측주사위의 눈금 수 만큼 플레이어를 조작할 수 있습니다.\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
+	printf("　 조작횟수가 차감되는 동작은 플레이어 이동, 미사일 발사입니다. 주사위를 굴릴 수 있는 남은 횟수가 0이 되면 게임이 종료됩니다.\n\n\n");
 
 	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
 	printf("● 아이템\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X+2, GetCurrentCursorPos().Y);
-	printf("아이템 주사위의 눈금이 짝수면 유리한 아이템, 홀수면 불리한 아이템 중 랜덤으로 실행됩니다.\n\n\n");
+	printf("아이템 주사위의 눈금이 짝수면 유리한 아이템, 홀수면 불리한 아이템 중 랜덤으로 실행됩니다.\n\n");
 
 	y = GetCurrentCursorPos().Y;
 
@@ -942,8 +965,12 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
 	printf("* 모든 부실 수 있는 벽 단계 증가\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 42, GetCurrentCursorPos().Y);
-	printf("* NPC 추가\n\n");
-	
+	printf("* NPC 추가\n\n\n");
+
+	setFontColor(FONT_LIGHT_JADE_COLOR);
+	SetCurrentCursorPos(GBOARD_ORIGIN_X, GetCurrentCursorPos().Y);
+	printf("ESC or ← : 뒤로 가기\n\n");
+	setFontColor(FONT_DEFAULT_COLOR);
 
 	while (1) {
 		int key;
@@ -992,10 +1019,11 @@ void gamePageInit() {
 	myX = map.startX;
 	myY = map.startY;
 	hookCount = map.hook;
-	blackHoleCount = 5;
+	blackHoleCount = map.blackHole;
 	blackHoleX = 0;
 	blackHoleY = 0;
 	blackHoleIndex = 0;
+	blackHoleTempNPCSpeed = DEFAULT_NPC_SPEED;
 	currentTankDirection = DIRECTION_UP;
 
 	enableDice = true;
@@ -1123,7 +1151,7 @@ void controlDirectionKey(int direction) {
 		if (enableDirectionKey) {
 
 			addMissile(myX, myY, currentTankDirection); // 미사일 발사
-
+			PlaySound(TEXT("sound\\ShootMissile.wav"),NULL,SND_ASYNC);
 			controlPoint -= 1;
 
 
@@ -1916,11 +1944,13 @@ void removeWall(int x, int y) {
 	case 1:
 		ALL_MAP[ROUND].map[y][x] -= 1;
 		addScore(temp);
+		PlaySound(TEXT("sound\\BreakTheWall.WAV"), NULL, SND_ASYNC);
 		break;
 	case 2:
 	case 3:
 		ALL_MAP[ROUND].map[y][x] -= 1;
 		addScore(temp);
+		PlaySound(TEXT("sound\\BreakTheWall.WAV"), NULL, SND_ASYNC);
 		break;
 	}
 
@@ -1987,6 +2017,7 @@ boolean moveTank(int direction) {
 		// 아이템을 먹은 경우
 		if (detectConflictWithItem(myX, myY)) {
 			ALL_MAP[ROUND].map[myY][myX] = 0;
+			PlaySound(TEXT("sound\\UseItem.wav"), NULL, SND_ASYNC);
 			useItem();
 		}
 
@@ -2048,7 +2079,7 @@ void moveNPC(void * param) {
 							tempY -= 1;
 						}
 
-						if (ALL_MAP[ROUND].map[tempY][tempX] != 8 && ALL_MAP[ROUND].map[tempY][tempX] != 9 && (!detectConflictWithNPC(tempX, tempY))) {
+						if (ALL_MAP[ROUND].map[tempY][tempX] != 8 && ALL_MAP[ROUND].map[tempY][tempX] != 9/* && (!detectConflictWithNPC(tempX, tempY))*/) {
 							npc->x = tempX;
 							npc->y = tempY;
 						}
@@ -2267,10 +2298,13 @@ void moveMissile(void * param) {
 				if (detectConflictWithNPC(m->x, m->y)) {
 					m->isEnable = false;
 					removeNPC(m->x, m->y, false);
+					PlaySound(TEXT("sound\\RemoveNPC.wav"), NULL, SND_ASYNC);
+
 				}
 				else if (detectConflictWithNPC(x, y)) {
 					m->isEnable = false;
 					removeNPC(x, y, false);
+					PlaySound(TEXT("sound\\RemoveNPC.wav"), NULL, SND_ASYNC);
 				}
 				else if (detectConflictWithWall(x, y)) {
 					m->isEnable = false;
@@ -2342,6 +2376,7 @@ void useHook(void * param) {
 	int y = myY + sumY;
 
 	boolean isNPCConflict = false;
+	PlaySound(TEXT("sound\\Arrow.wav"), NULL, SND_ASYNC | SND_LOOP);
 
 	// 훅 이동을 위한 반복문
 	while (1) {
@@ -2371,6 +2406,9 @@ void useHook(void * param) {
 	HOOK* temp = HOOK_LIST;
 	HOOK * temp1;
 
+	PlaySound(TEXT("sound\\ConflictHook.wav"), NULL, SND_ASYNC);
+
+	int moveCount = 0;
 	// 탱크 이동을 위한 반복문
 	while (temp != NULL) {
 
@@ -2385,19 +2423,18 @@ void useHook(void * param) {
 		HOOK_LIST = temp->next;
 		free(temp);
 		temp = HOOK_LIST;
-
+		moveCount += 1;
 
 		Sleep(hookDelay);
 
 	}
 
-	if (!isNPCConflict) {
+	if (!isNPCConflict && moveCount >= 1) {
 		hookCount -= 1;
 	}
 
 	isHook = false;
 	enableDirectionKey = true;
-
 
 
 }
@@ -2470,6 +2507,15 @@ void useBlackHole(void * param) {
 	}
 
 	// 블랙홀 기능
+
+	PlaySound(TEXT("sound\\BlackHole.wav"), NULL, SND_ASYNC | SND_LOOP);
+
+	// 블랙홀 패널피로 NPC 속도 증가
+	blackHoleTempNPCSpeed = NPC_SPEED;
+	NPC_SPEED = NPC_SPEED / 2;
+	if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
+		NPC_SPEED = DEFAULT_NPC_SPEED / 4;
+	}
 
 	isBlackHoleMoveFinish = true;
 	blackHoleCount -= 1;
@@ -2603,8 +2649,10 @@ void useBlackHole(void * param) {
 
 	}
 
+	NPC_SPEED = blackHoleTempNPCSpeed;
 	isBlackHoleMoveFinish = false;
 	isBlackHole = false;
+	PlaySound(NULL, 0, 0);
 
 }
 
@@ -2799,6 +2847,7 @@ void removeOneNPC() {
 
 				break;
 			case SPACE:
+				PlaySound(TEXT("sound\\9_mm_gunshot.wav"), NULL, SND_ASYNC);
 				removeNPC(x, y, true); // NPC 제거
 				isSelected = true;
 				break;
@@ -2824,6 +2873,7 @@ void NPCSpeedUp(void * param) {
 		isAlreadyNPCSpeed = true;
 		remainDiceNumberByNPCSpeed = diceEnableNumber - 3;
 
+		blackHoleTempNPCSpeed = NPC_SPEED;
 		NPC_SPEED = NPC_SPEED / 2;
 		if (NPC_SPEED <= DEFAULT_NPC_SPEED / 4) {
 			NPC_SPEED = DEFAULT_NPC_SPEED / 4;
@@ -2833,7 +2883,14 @@ void NPCSpeedUp(void * param) {
 			Sleep(100);
 		}
 
-		NPC_SPEED = DEFAULT_NPC_SPEED;
+		if (isBlackHole) {
+			NPC_SPEED = blackHoleTempNPCSpeed;
+			blackHoleTempNPCSpeed = DEFAULT_NPC_SPEED;
+		}
+		else {
+			NPC_SPEED = DEFAULT_NPC_SPEED;
+		}
+		
 		isAlreadyNPCSpeed = false;
 
 	}
@@ -3072,6 +3129,16 @@ void showCurrentRoundScore(boolean success) {
 		}
 
 		SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 12, GBOARD_ORIGIN_Y + (i * 5));
+		printf("%2d 라운드 추가 점수 = %d", ROUND + 1, (ROUND+1)*200);
+		totalScore += (ROUND+1) * 200;
+		i += 1;
+
+		for (int k = 0; k < INIT_PAGE_WIDHT / 2; k++) {
+			SetCurrentCursorPos(k*2, GBOARD_ORIGIN_Y + (i * 5));
+			printf("━");
+		}
+
+		SetCurrentCursorPos(INIT_PAGE_WIDHT / 2 - 12, GBOARD_ORIGIN_Y + (i * 5)+2);
 		printf("%2d 라운드 총 점수 = %d", ROUND+1, totalScore);
 		TOTAL_SCORE += totalScore;
 		i += 1;
