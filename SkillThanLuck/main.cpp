@@ -902,7 +902,9 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
 	printf("* Space bar : 미사일 발사\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
-	printf("* Q : 초기화면에서 도움말\n\n");
+	printf("* i : 초기화면에서 도움말\n\n");
+	SetCurrentCursorPos(GBOARD_ORIGIN_X + 2, GetCurrentCursorPos().Y);
+	printf("* Q : 초기화면에서 게임 종료\n\n");
 
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 30, y);
 	printf("● 게임 요소\n\n");
@@ -950,7 +952,7 @@ void helpPage() {
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
 	printf("* 모든 부실 수 있는 벽 단계 감소\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
-	printf("* 탱크 일시 무적\n\n");
+	printf("* 플레이어 일시 무적\n\n");
 	SetCurrentCursorPos(GBOARD_ORIGIN_X + 4, GetCurrentCursorPos().Y);
 	printf("* 원하는 NPC 하나 삭제\n\n");
 
